@@ -1,0 +1,10 @@
+AggregateError: 
+    TypeError: Cannot read properties of undefined (reading 'issues')
+        at Z:/custom-gh-bot/index.js:36:29
+        at Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:177:14
+        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Promise.all (index 0)
+        at async middleware (Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
+    at Z:\custom-gh-bot\node_modules\@octokit\webhooks\dist-node\index.js:187:19
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async middleware (Z:\custom-gh-bot\node_modules\@octokit\webhooks\dist-node\index.js:355:5)
