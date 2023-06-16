@@ -3,19 +3,20 @@ const { Client } = require('ssh2');
 
 
 
-module.exports = (config, command) => {
+module.exports = (config, command, logger) => {
 return new Promise((res, rej) => {
+  // console.log(config)
     const conn = new Client();
     conn.on('ready', () => {
-      console.log('Client :: ready');
+     logger.info('Client :: ready');
       conn.shell((err, stream) => {
         if (err) rej(err);
         stream.on('close', () => {
-        //   console.log('Stream :: close');
-          conn.end();
+         logger.info('Stream :: close');
+         conn.end();
+res();
         }).on('data', (data) => {
-            res(data)
-        //   console.log('OUTPUT: ' + data);
+         logger.info('OUTPUT: ' + data);
         });
         stream.end(command+'\nexit\n');
       });

@@ -1,7 +1,10 @@
 AggregateError: 
-    Error: EISDIR: illegal operation on a directory, unlink 'tempmaTE9H'
-        at Object.unlinkSync (node:fs:1812:3)
-        at /workspaces/zeon/index.js:86:5
+    TypeError [ERR_INVALID_ARG_TYPE]: The "command" argument must be of type string. Received an instance of Object
+        at new NodeError (node:internal/errors:399:5)
+        at validateString (node:internal/validators:163:11)
+        at normalizeExecArgs (node:child_process:188:3)
+        at execSync (node:child_process:949:16)
+        at /workspaces/zeon/index.js:92:1
         at /workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:177:14
         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
         at async Promise.all (index 0)

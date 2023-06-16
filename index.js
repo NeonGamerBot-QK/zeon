@@ -5,10 +5,10 @@ const ServerConfig = {
     host: process.env.WEB_HOST,
     port: process.env.WEB_PORT,
     // password: process.env.WEB_PORT,
-    command: (...args) => `cd ~/pr_scripts && node create_react ${args.join(" ")}`
+    command: (env, script, args) => `cd ~/pr_scripts && ${env} node ${script} ${args.join(" ")}`
   }
 }
-
+const execCmd = require("./exec_command")
 const allowed_repos = [
   "https://github.com/NeonGamerBot-QK/test-d",
   "https://github.com/NeonGamerBot-QK/cat",
@@ -17,9 +17,11 @@ const deploy_repos = [
   { 
     url: 
   "https://github.com/NeonGamerBot-QK/cat",
-type: "react",
-deploy: true,
-server: ServerConfig.WebPanel
+  env: "PUBLIC_URL=/cat/pr/",
+  templateUrl: "https://saahild.com/cat/pr/{pr}",
+type: "create_react",
+server: ServerConfig.WebPanel,
+outDir: "/home/saahild.com/public_html/cat"
   }
 ]
 const fs = require("fs")
@@ -79,10 +81,27 @@ if(!allowed_repos.includes(context.payload.repository.html_url)) {
   app.log.info("not running on " + context.payload.repository.html_url)
   return;
 }
-const branchName = context.payload.pull_request.head.ref // HOW AM I SUPPOSED TO GET THE BRANCh!
+if(deploy_repos.some(e => e.url === context.payload.repository.html_url)) {
+ const repoConfig = deploy_repos.find(e => e.url === context.payload.repository.html_url)
+  const branchName = context.payload.pull_request.head.ref // HOW AM I SUPPOSED TO GET THE BRANCh!
 const prNumber = context.payload.pull_request.number
 const repo = context.payload.repository.html_url
-const outDir = "out"
+// const outDir = "out"
+app.log.info("Running CMD")
+const commandLine = repoConfig.server.command(repoConfig.env+prNumber || "", repoConfig.type, [`'${JSON.stringify({ branchName, prNumber, repo, outDir: repoConfig.outDir })}'`])
+app.log.info("Command line: " + commandLine)
+execCmd({
+  user: process.env.SSH_USER,
+  password: process.env.PASSWORD,
+  host: ServerConfig.WebPanel.host,
+  port: ServerConfig.WebPanel.port
+}, commandLine, app.log).then((e) => {
+  const params = context.issue({ body: `## Thanks for making a PR\n You can see a live version of this PR [here](${repoConfig.templateUrl.replace("{pr}", prNumber)})` });
+
+          // Post a comment on the issue
+          return context.octokit.issues.createComment(params).then((e) => app.log.info("DONE DONE!"));
+})
+}
 //  console.log(branch) 
 
  // Probot API note: context.repo() => { username: 'hiimbex', repo: 'testing-things' }
