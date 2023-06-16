@@ -1,9 +1,30 @@
 // Deployments API example
 // See: https://developer.github.com/v3/repos/deployments/ to learn more
+const ServerConfig = {
+  WebPanel: {
+    host: process.env.WEB_HOST,
+    port: process.env.WEB_PORT,
+    // password: process.env.WEB_PORT,
+    command: (...args) => `cd ~/pr_scripts && node create_react ${args.join(" ")}`
+  }
+}
+
 const allowed_repos = [
-  "https://github.com/NeonGamerBot-QK/test-d"
+  "https://github.com/NeonGamerBot-QK/test-d",
+  "https://github.com/NeonGamerBot-QK/cat",
+]
+const deploy_repos = [ 
+  { 
+    url: 
+  "https://github.com/NeonGamerBot-QK/cat",
+type: "react",
+deploy: true,
+server: ServerConfig.WebPanel
+  }
 ]
 const fs = require("fs")
+const { execSync } = require("child_process")
+const path = require("path")
 /**
  * This is the main entrypoint to your Probot app
  * @param {import('probot').Probot} app
@@ -53,12 +74,18 @@ app.onError((e) => {
     // NOTE: this example doesn't actually integrate with a cloud
     // provider to deploy your app, it just demos the basic API usage.
     app.log.info(context.payload.repository.html_url);
+   
 if(!allowed_repos.includes(context.payload.repository.html_url)) {
   app.log.info("not running on " + context.payload.repository.html_url)
   return;
 }
-// const branch = context.payload.pull_request. HOW AM I SUPPOSED TO GET THE BRANCh!
-    // Probot API note: context.repo() => { username: 'hiimbex', repo: 'testing-things' }
+const branchName = context.payload.pull_request.head.ref // HOW AM I SUPPOSED TO GET THE BRANCh!
+const prNumber = context.payload.pull_request.number
+const repo = context.payload.repository.html_url
+const outDir = "out"
+//  console.log(branch) 
+
+ // Probot API note: context.repo() => { username: 'hiimbex', repo: 'testing-things' }
     // const res = await context.octokit.repos.createDeployment(
     //   context.repo({
     //     ref: context.payload.pull_request.head.ref, // The ref to deploy. This can be a branch, tag, or SHA.
