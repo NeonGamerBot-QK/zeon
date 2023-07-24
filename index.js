@@ -133,7 +133,11 @@ execCmd({
   //     })
   //   );
   });
-
+// on repo create event
+app.on(['repository.created'], (ctx) => {
+  // ctx.isBot
+  // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
+})
   // For more information on building apps:
   // https://probot.github.io/docs/
 
