@@ -34,7 +34,7 @@ module.exports = robot => {
 
     return Promise.all(compare.data.files.map(async file => {
       if (!exclude.includes(file.filename)) {
-        const content = await context.github.repos.getContent(context.repo({
+        const content = await context.octokit.repos.getContent(context.repo({
           path: file.filename,
           ref: branch
         }))

@@ -1,6 +1,6 @@
 AggregateError: 
-    TypeError: Cannot read properties of undefined (reading 'includes')
-        at Z:/custom-gh-bot/Linter/index.js:36:20
+    TypeError: Cannot read properties of undefined (reading 'repos')
+        at Z:/custom-gh-bot/Linter/index.js:37:46
         at Array.map (<anonymous>)
         at Z:/custom-gh-bot/Linter/index.js:35:43
         at async Promise.all (index 0)
