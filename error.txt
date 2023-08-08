@@ -1,6 +1,6 @@
 AggregateError: 
     TypeError: Cannot read properties of undefined (reading 'repos')
-        at Z:/custom-gh-bot/Linter/index.js:9:42
+        at Z:/custom-gh-bot/Linter/index.js:8:28
         at Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:177:14
         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
         at async Promise.all (index 0)
