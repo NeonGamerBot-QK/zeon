@@ -1,14 +1,10 @@
 AggregateError: 
-    TypeError [ERR_INVALID_ARG_TYPE]: The "command" argument must be of type string. Received an instance of Object
-        at new NodeError (node:internal/errors:399:5)
-        at validateString (node:internal/validators:163:11)
-        at normalizeExecArgs (node:child_process:188:3)
-        at execSync (node:child_process:949:16)
-        at /workspaces/zeon/index.js:92:1
-        at /workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:177:14
+    TypeError: Cannot read properties of undefined (reading 'repos')
+        at Z:/custom-gh-bot/Linter/index.js:9:42
+        at Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:177:14
         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
         at async Promise.all (index 0)
-        at async middleware (/workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
-    at /workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:187:19
+        at async middleware (Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
+    at Z:\custom-gh-bot\node_modules\@octokit\webhooks\dist-node\index.js:187:19
     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-    at async middleware (/workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
+    at async middleware (Z:\custom-gh-bot\node_modules\@octokit\webhooks\dist-node\index.js:355:5)
