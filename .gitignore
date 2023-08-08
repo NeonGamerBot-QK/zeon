@@ -4,6 +4,6 @@ npm-debug.log
 !mock-cert.pem
 .env
 coverage
-lib
+# lib
 temp*
 out
