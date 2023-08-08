@@ -48,7 +48,8 @@ module.exports = robot => {
           return Promise.all(results.results.map(result => {
             if (result.output) {
               // Checks that we have a fixed version and the file isn't part of the exclude list
-              context.octokit.repos.updateFile(context.repo({
+            //   context.octokit.repos.createOrUpdateFileContents()
+              context.octokit.repos.createOrUpdateFileContents(context.repo({
                 path: file.filename,
                 message: `Fix lint errors for ${file.filename}`,
                 content: Buffer.from(result.output).toString('base64'),
