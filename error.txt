@@ -1,10 +1,9 @@
 AggregateError: 
-    TypeError: Cannot read properties of undefined (reading 'repos')
-        at Z:/custom-gh-bot/Linter/index.js:9:42
-        at Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:177:14
-        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    TypeError: Cannot read properties of undefined (reading 'includes')
+        at Z:/custom-gh-bot/Linter/index.js:36:20
+        at Array.map (<anonymous>)
+        at Z:/custom-gh-bot/Linter/index.js:35:43
         at async Promise.all (index 0)
         at async middleware (Z:/custom-gh-bot/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
     at Z:\custom-gh-bot\node_modules\@octokit\webhooks\dist-node\index.js:187:19
-    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async middleware (Z:\custom-gh-bot\node_modules\@octokit\webhooks\dist-node\index.js:355:5)

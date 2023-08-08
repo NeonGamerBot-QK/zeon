@@ -6,7 +6,7 @@ const standard = require('standard')
  */
 module.exports = robot => {
   robot.on('push', async context => {
-    let exclude
+    let exclude = []
     const linterItems = {}
     const push = context.payload
     
