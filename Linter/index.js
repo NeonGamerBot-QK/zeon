@@ -5,7 +5,7 @@ module.exports = robot => {
     let exclude
     const linterItems = {}
     const push = context.payload
-
+console.log(context.github.repos, context.github)
     const compare = await context.github.repos.compareCommits(context.repo({
       base: push.before,
       head: push.after
