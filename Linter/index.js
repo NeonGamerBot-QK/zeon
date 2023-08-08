@@ -1,13 +1,19 @@
 const standard = require('standard')
 
-
+/**
+ * This is the main entrypoint to your Probot app
+ * @param {import('probot').Probot} robot
+ */
 module.exports = robot => {
   robot.on('push', async context => {
     let exclude
     const linterItems = {}
     const push = context.payload
-robot.log.info(context, context.github)
-    const compare = await context.github.repos.compareCommits(context.repo({
+    
+// robot.log.info(context, context.github)
+
+
+    const compare = await context.octokit.repos.compareCommits(context.repo({
       base: push.before,
       head: push.after
     }))
@@ -42,7 +48,7 @@ robot.log.info(context, context.github)
           return Promise.all(results.results.map(result => {
             if (result.output) {
               // Checks that we have a fixed version and the file isn't part of the exclude list
-              context.github.repos.updateFile(context.repo({
+              context.octokit.repos.updateFile(context.repo({
                 path: file.filename,
                 message: `Fix lint errors for ${file.filename}`,
                 content: Buffer.from(result.output).toString('base64'),
