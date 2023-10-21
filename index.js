@@ -27,13 +27,21 @@ outDir: "/home/saahild.com/public_html/cat"
 const fs = require("fs")
 const { execSync } = require("child_process")
 const path = require("path")
+const fetch = require('node-fetch')
 /**
  * This is the main entrypoint to your Probot app
  * @param {import('probot').Probot} app
  */
 module.exports = app => {
   // Your code here
-
+if(process.env.UPTIME_URL) {
+  app.log('LOADED UPTIME')
+  setInterval(() => {
+    fetch(process.env.UPTIME_URL).then(() => {
+      app.log('declared UPTIME')
+    })
+  }, 50 * 1000)
+}
   app.log.info("Yay, the app was loaded!");
   app.on(["issues.opened"], async ctx => {
     app.log.info("new issue");
