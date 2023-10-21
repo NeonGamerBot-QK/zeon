@@ -40,9 +40,9 @@ module.exports = app => {
     app.log.info(ctx);
     //  const params = ctx.issue({body: 'Hello World!'})
     //   return ctx.github.issues.createComment(params)
-    return ctx.octokit.issues.createComment(
-      ctx.issue({ body: "Hello World!" })
-    );
+    // return ctx.octokit.issues.createComment(
+    //   ctx.issue({ body: "Hello World!" })
+    // );
   });
 
   app.on(["issues.closed"], async ctx => {
@@ -56,13 +56,13 @@ module.exports = app => {
     //   app.log.info("not running on " + context.payload.repository.html_url)
     //   return;
     // }
-    app.log.info("IS IT A MERGE NO")
-    const isMerged = ctx.payload.pull_request.merged
-   const body = isMerged ? `# Thanks, ${ctx.payload.sender.login}!,\n Thanks for your contribution to this repository! and it will be gratefully excepted!` : `# Thanks, ${ctx.payload.sender.login}\n Thanks for submitting a PR!`
-    const params = ctx.issue({ body });
+  //   app.log.info("IS IT A MERGE NO")
+  //   const isMerged = ctx.payload.pull_request.merged
+  //  const body = isMerged ? `# Thanks, ${ctx.payload.sender.login}!,\n Thanks for your contribution to this repository! and it will be gratefully excepted!` : `# Thanks, ${ctx.payload.sender.login}\n Thanks for submitting a PR!`
+  //   const params = ctx.issue({ body });
 
-          // Post a comment on the issue
-          return ctx.octokit.issues.createComment(params);
+  //         // Post a comment on the issue
+  //         return ctx.octokit.issues.createComment(params);
   });
 app.onError((e) => {
   app.log.error(e.message)
@@ -76,6 +76,7 @@ app.onError((e) => {
     // NOTE: this example doesn't actually integrate with a cloud
     // provider to deploy your app, it just demos the basic API usage.
     app.log.info(context.payload.repository.html_url);
+
    
 if(!allowed_repos.includes(context.payload.repository.html_url)) {
   app.log.info("not running on " + context.payload.repository.html_url)
@@ -138,13 +139,56 @@ app.on(['repository.created'], (ctx) => {
   // ctx.isBot
   // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
 })
+app.on(['push'], async (ctx) => {
+  // ctx.octokit.issues.create(ctx.issue({
+  //   body: 'test',
+  // }))
+  const push = context.payload
 
+  // robot.log.info(context, context.github)
+  
+      const compare = await context.octokit.repos.compareCommits(ctx.repo({
+        base: push.before,
+        head: push.after
+      }))
+      const branch = push.ref.replace('refs/heads/', '')
+      return Promise.all(compare.data.files.map(async file => {
+        if (!exclude.includes(file.filename)) {
+          const content = await ctx.octokit.repos.getContent(ctx.repo({
+            path: file.filename,
+            ref: branch
+          }))
+          const text = Buffer.from(content.data.content, 'base64').toString()
+          Object.assign(linterItems, {cwd: '', fix: true, filename: file.filename})
+  
+         
+            if (err) {
+              throw new Error(err)
+            }
+            return Promise.all(results.results.map(result => {
+              if (result.output) {
+                // Checks that we have a fixed version and the file isn't part of the exclude list
+              //   context.octokit.repos.createOrUpdateFileContents()
+                ctx.octokit.repos.createOrUpdateFileContents(ctx.repo({
+                  path: file.filename,
+                  message: `Fix lint errors for ${file.filename}`,
+                  content: Buffer.from(result.output).toString('base64'),
+                  sha: content.data.sha,
+                  branch
+                }))
+              }
+            }))
+         
+        }
+      }))
+})
 
 // all copied probot bots
 // require("./Stale")(app)
 require('./Linter')(app)
-require('./MistakenPR')(app)
+// require('./MistakenPR')(app)
 require("./DupIssue")(app)
+require('./zeon_canvas')(app)
   // For more information on building apps:
   // https://probot.github.io/docs/
 
