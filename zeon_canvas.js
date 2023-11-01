@@ -1,5 +1,6 @@
 const ignore = require('ignore')
 const path = require('path')
+const fs =require('fs')
 const { createCanvas } = require('canvas')
 const fetch = require('node-fetch')
 const FormData = require('form-data')
