@@ -54,7 +54,7 @@ docs: ['*.md']
     for (const label in config) {
         app.log('looking for changes', label, config[label])
         const matcher = ignore().add(config[label])
-  
+
         if (changedFiles.find((file) => matcher.ignores(file))) {
           labels.add(label)
         }
@@ -131,6 +131,10 @@ ctx.octokit.issues.createComment(
    `
   })
     );
+
+    // now find a way to run the tests 
+    app.log('this is the part where the test are supposed to run BUT idk how :3')
+    app.log(ctx.payload)
     }
 
    })
@@ -174,6 +178,7 @@ ctx.octokit.issues.createComment(
    `
   })
     );
+
     }
 
    })
