@@ -138,11 +138,11 @@ ${previews.map((p) => {
       // app.log(ctx.payload)
       for (const file of files.data) {
         let fdata = await fetch(file.raw_url).then(r => r.text())
-        const fileName = path.join(__dirname, 'temp_', f.fileName)
+        const fileName = path.join(__dirname, 'temp_', file.fileName)
         fs.writeFileSync(fileName, fdata)
         const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + fileName).toString()
         ctx.octokit.issues.createComment(
-    ctx.issue({ body: `# Test results \`${f.fileName}\`:\n 
+    ctx.issue({ body: `# Test results \`${file.fileName}\`:\n 
     \`\`\`
     ${str}
     \`\`\`
