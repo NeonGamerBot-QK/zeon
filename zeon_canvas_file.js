@@ -31,11 +31,11 @@ module.exports = (f) => {
         expect(file.length === 1).toBeTruthy()
       })
 
-      if (fs.readFileSync(path.join(__dirname, 'temp_', f)).toString().split('\n')[0] === '//WEBEDITOROVERRIDE') {
+      if (fs.readFileSync(path.join(__dirname, 'temp_/src/blocks', f)).toString().split('\n')[0] === '//WEBEDITOROVERRIDE') {
         describe('Web UI file tests:', () => {
           let meta
           it('should contain parsable metadata', () => {
-            const rawMeta = fs.readFileSync(path.join(__dirname, 'temp_', f)).toString().split('\n')[1].split('//meta:')[1]
+            const rawMeta = fs.readFileSync(path.join(__dirname, 'temp_/src/blocks', f)).toString().split('\n')[1].split('//meta:')[1]
             meta = JSON.parse(rawMeta)
           })
 
