@@ -143,7 +143,7 @@ ${previews.map((p) => {
         fs.writeFileSync(fileName, fdata)
         try {
           const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + fileName).toString()
-        ctx.octokit.issues.createComment(
+          ctx.octokit.issues.createComment(
     ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n 
     \`\`\`
     ${str}
