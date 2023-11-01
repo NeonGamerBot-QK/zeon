@@ -147,49 +147,49 @@ app.on(['repository.created'], (ctx) => {
   // ctx.isBot
   // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
 })
-app.on(['push'], async (ctx) => {
-  // ctx.octokit.issues.create(ctx.issue({
-  //   body: 'test',
-  // }))
-  const push = context.payload
+// app.on(['push'], async (ctx) => {
+//   // ctx.octokit.issues.create(ctx.issue({
+//   //   body: 'test',
+//   // }))
+//   const push = context.payload
 
-  // robot.log.info(context, context.github)
+//   // robot.log.info(context, context.github)
   
-      const compare = await context.octokit.repos.compareCommits(ctx.repo({
-        base: push.before,
-        head: push.after
-      }))
-      const branch = push.ref.replace('refs/heads/', '')
-      return Promise.all(compare.data.files.map(async file => {
-        if (!exclude.includes(file.filename)) {
-          const content = await ctx.octokit.repos.getContent(ctx.repo({
-            path: file.filename,
-            ref: branch
-          }))
-          const text = Buffer.from(content.data.content, 'base64').toString()
-          Object.assign(linterItems, {cwd: '', fix: true, filename: file.filename})
+//       const compare = await context.octokit.repos.compareCommits(ctx.repo({
+//         base: push.before,
+//         head: push.after
+//       }))
+//       const branch = push.ref.replace('refs/heads/', '')
+//       return Promise.all(compare.data.files.map(async file => {
+//         if (!exclude.includes(file.filename)) {
+//           const content = await ctx.octokit.repos.getContent(ctx.repo({
+//             path: file.filename,
+//             ref: branch
+//           }))
+//           const text = Buffer.from(content.data.content, 'base64').toString()
+//           Object.assign(linterItems, {cwd: '', fix: true, filename: file.filename})
   
          
-            if (err) {
-              throw new Error(err)
-            }
-            return Promise.all(results.results.map(result => {
-              if (result.output) {
-                // Checks that we have a fixed version and the file isn't part of the exclude list
-              //   context.octokit.repos.createOrUpdateFileContents()
-                ctx.octokit.repos.createOrUpdateFileContents(ctx.repo({
-                  path: file.filename,
-                  message: `Fix lint errors for ${file.filename}`,
-                  content: Buffer.from(result.output).toString('base64'),
-                  sha: content.data.sha,
-                  branch
-                }))
-              }
-            }))
+//             if (err) {
+//               throw new Error(err)
+//             }
+//             return Promise.all(results.results.map(result => {
+//               if (result.output) {
+//                 // Checks that we have a fixed version and the file isn't part of the exclude list
+//               //   context.octokit.repos.createOrUpdateFileContents()
+//                 ctx.octokit.repos.createOrUpdateFileContents(ctx.repo({
+//                   path: file.filename,
+//                   message: `Fix lint errors for ${file.filename}`,
+//                   content: Buffer.from(result.output).toString('base64'),
+//                   sha: content.data.sha,
+//                   branch
+//                 }))
+//               }
+//             }))
          
-        }
-      }))
-})
+//         }
+//       }))
+// })
 
 // all copied probot bots
 // require("./Stale")(app)
