@@ -31,7 +31,7 @@ module.exports = (f) => {
         expect(file.length === 1).toBeTruthy()
       })
 
-      if (fs.readFileSync(path.join(__dirname, 'temp_', f)).toString().split('\n')[0] === '//WEBEDITOROVERRIDE') {
+      if (fs.readFileSync(path.join(__dirname, f)).toString().split('\n')[0] === '//WEBEDITOROVERRIDE') {
         describe('Web UI file tests:', () => {
           let meta
           it('should contain parsable metadata', () => {
