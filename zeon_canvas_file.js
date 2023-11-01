@@ -19,7 +19,7 @@ module.exports = (f) => {
     describe('Tests on code', () => {
       let file
       it('should render as valid js code', () => {
-        file = require(path.join(__dirname, 'temp_', f))
+        file = require(path.join(__dirname, 'temp_/src/blocks', f))
       })
       it('should export something', () => {
         expect(file).toBeDefined()
