@@ -135,12 +135,12 @@ ${previews.map((p) => {
     // now find a way to run the tests
       app.log('this is the part where the test are supposed to run BUT idk how :)')
       // app.log(ctx.payload)
-for (const file of files.data) {
-  let fdata = await fetch(file.raw_url).then(r => r.text())
-  const fileName = path.join(__dirname, 'temp_', f.fileName)
-  fs.writeFileSync(fileName, fdata)
-  const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + fileName).toString()
-  ctx.octokit.issues.createComment(
+      for (const file of files.data) {
+        let fdata = await fetch(file.raw_url).then(r => r.text())
+        const fileName = path.join(__dirname, 'temp_', f.fileName)
+        fs.writeFileSync(fileName, fdata)
+        const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + fileName).toString()
+        ctx.octokit.issues.createComment(
     ctx.issue({ body: `# Test results \`${f.fileName}\`:\n 
     \`\`\`
     ${str}
@@ -148,8 +148,8 @@ for (const file of files.data) {
      `
     })
       )
-      fs.rmSync(fileName)
-}
+        fs.rmSync(fileName)
+      }
     }
   })
 
