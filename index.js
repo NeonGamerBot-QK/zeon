@@ -5,28 +5,28 @@ const ServerConfig = {
     host: process.env.WEB_HOST,
     port: process.env.WEB_PORT,
     // password: process.env.WEB_PORT,
-    command: (env, script, args) => `cd ~/pr_scripts && ${env} node ${script} ${args.join(" ")}`
+    command: (env, script, args) => `cd ~/pr_scripts && ${env} node ${script} ${args.join(' ')}`
   }
 }
-const execCmd = require("./exec_command")
+const execCmd = require('./exec_command')
 const allowed_repos = [
-  "https://github.com/NeonGamerBot-QK/test-d",
-  "https://github.com/NeonGamerBot-QK/cat",
+  'https://github.com/NeonGamerBot-QK/test-d',
+  'https://github.com/NeonGamerBot-QK/cat'
 ]
-const deploy_repos = [ 
-  { 
-    url: 
-  "https://github.com/NeonGamerBot-QK/cat",
-  env: "PUBLIC_URL=/cat/pr/",
-  templateUrl: "https://saahild.com/cat/pr/{pr}",
-type: "create_react",
-server: ServerConfig.WebPanel,
-outDir: "/home/saahild.com/public_html/cat"
+const deploy_repos = [
+  {
+    url:
+  'https://github.com/NeonGamerBot-QK/cat',
+    env: 'PUBLIC_URL=/cat/pr/',
+    templateUrl: 'https://saahild.com/cat/pr/{pr}',
+    type: 'create_react',
+    server: ServerConfig.WebPanel,
+    outDir: '/home/saahild.com/public_html/cat'
   }
 ]
-const fs = require("fs")
-const { execSync } = require("child_process")
-const path = require("path")
+const fs = require('fs')
+const { execSync } = require('child_process')
+const path = require('path')
 const fetch = require('node-fetch')
 /**
  * This is the main entrypoint to your Probot app
@@ -34,32 +34,32 @@ const fetch = require('node-fetch')
  */
 module.exports = app => {
   // Your code here
-if(process.env.UPTIME_URL) {
-  app.log('LOADED UPTIME')
-  setInterval(() => {
-    fetch(process.env.UPTIME_URL).then(() => {
-      app.log('declared UPTIME')
-    })
-  }, 50 * 1000)
-}
-  app.log.info("Yay, the app was loaded!");
-  app.on(["issues.opened"], async ctx => {
-    app.log.info("new issue");
-    app.log.info(ctx);
+  if (process.env.UPTIME_URL) {
+    app.log('LOADED UPTIME')
+    setInterval(() => {
+      fetch(process.env.UPTIME_URL).then(() => {
+        app.log('declared UPTIME')
+      })
+    }, 50 * 1000)
+  }
+  app.log.info('Yay, the app was loaded!')
+  app.on(['issues.opened'], async ctx => {
+    app.log.info('new issue')
+    app.log.info(ctx)
     //  const params = ctx.issue({body: 'Hello World!'})
     //   return ctx.github.issues.createComment(params)
     // return ctx.octokit.issues.createComment(
     //   ctx.issue({ body: "Hello World!" })
     // );
-  });
+  })
 
-  app.on(["issues.closed"], async ctx => {
-    app.log.info("closed issue");
+  app.on(['issues.closed'], async ctx => {
+    app.log.info('closed issue')
     return ctx.octokit.issues.createComment(
-      ctx.issue({ body: "## Thank you for your issue!" })
-    );
-  });
-  app.on("pull_request.closed", ctx => {
+      ctx.issue({ body: '## Thank you for your issue!' })
+    )
+  })
+  app.on('pull_request.closed', ctx => {
     // if(!allowed_repos.includes(context.payload.repository.html_url)) {
     //   app.log.info("not running on " + context.payload.repository.html_url)
     //   return;
@@ -71,47 +71,46 @@ if(process.env.UPTIME_URL) {
 
   //         // Post a comment on the issue
   //         return ctx.octokit.issues.createComment(params);
-  });
-app.onError((e) => {
-  app.log.error(e.message)
-  if(e.stack) {
-    fs.writeFileSync("error.txt", e.stack)
-  }
-})
-  app.on(["pull_request.opened", "pull_request.synchronize"], async context => {
+  })
+  app.onError((e) => {
+    app.log.error(e.message)
+    if (e.stack) {
+      fs.writeFileSync('error.txt', e.stack)
+    }
+  })
+  app.on(['pull_request.opened', 'pull_request.synchronize'], async context => {
     // Creates a deployment on a pull request event
     // Then sets the deployment status to success
     // NOTE: this example doesn't actually integrate with a cloud
     // provider to deploy your app, it just demos the basic API usage.
-    app.log.info(context.payload.repository.html_url);
+    app.log.info(context.payload.repository.html_url)
 
-   
-if(!allowed_repos.includes(context.payload.repository.html_url)) {
-  app.log.info("not running on " + context.payload.repository.html_url)
-  return;
-}
-if(deploy_repos.some(e => e.url === context.payload.repository.html_url)) {
- const repoConfig = deploy_repos.find(e => e.url === context.payload.repository.html_url)
-  const branchName = context.payload.pull_request.head.ref // HOW AM I SUPPOSED TO GET THE BRANCh!
-const prNumber = context.payload.pull_request.number
-const repo = context.payload.repository.html_url
+    if (!allowed_repos.includes(context.payload.repository.html_url)) {
+      app.log.info('not running on ' + context.payload.repository.html_url)
+      return
+    }
+    if (deploy_repos.some(e => e.url === context.payload.repository.html_url)) {
+      const repoConfig = deploy_repos.find(e => e.url === context.payload.repository.html_url)
+      const branchName = context.payload.pull_request.head.ref // HOW AM I SUPPOSED TO GET THE BRANCh!
+      const prNumber = context.payload.pull_request.number
+      const repo = context.payload.repository.html_url
 // const outDir = "out"
-app.log.info("Running CMD")
-const commandLine = repoConfig.server.command(repoConfig.env+prNumber || "", repoConfig.type, [`'${JSON.stringify({ branchName, prNumber, repo, outDir: repoConfig.outDir })}'`])
-app.log.info("Command line: " + commandLine)
-execCmd({
-  user: process.env.SSH_USER,
-  password: process.env.PASSWORD,
-  host: ServerConfig.WebPanel.host,
-  port: ServerConfig.WebPanel.port
-}, commandLine, app.log).then((e) => {
-  const params = context.issue({ body: `## Thanks for making a PR\n You can see a live version of this PR [here](${repoConfig.templateUrl.replace("{pr}", prNumber)})` });
+      app.log.info('Running CMD')
+      const commandLine = repoConfig.server.command(repoConfig.env + prNumber || '', repoConfig.type, [`'${JSON.stringify({ branchName, prNumber, repo, outDir: repoConfig.outDir })}'`])
+      app.log.info('Command line: ' + commandLine)
+      execCmd({
+        user: process.env.SSH_USER,
+        password: process.env.PASSWORD,
+        host: ServerConfig.WebPanel.host,
+        port: ServerConfig.WebPanel.port
+      }, commandLine, app.log).then((e) => {
+        const params = context.issue({ body: `## Thanks for making a PR\n You can see a live version of this PR [here](${repoConfig.templateUrl.replace('{pr}', prNumber)})` })
 
           // Post a comment on the issue
-          return context.octokit.issues.createComment(params).then((e) => app.log.info("DONE DONE!"));
-})
-}
-//  console.log(branch) 
+        return context.octokit.issues.createComment(params).then((e) => app.log.info('DONE DONE!'))
+      })
+    }
+//  console.log(branch)
 
  // Probot API note: context.repo() => { username: 'hiimbex', repo: 'testing-things' }
     // const res = await context.octokit.repos.createDeployment(
@@ -141,12 +140,12 @@ execCmd({
   //       auto_inactive: true // Adds a new inactive status to all prior non-transient, non-production environment deployments with the same repository and environment name as the created status's deployment. An inactive status is only added to deployments that had a success state.
   //     })
   //   );
-  });
+  })
 // on repo create event
-app.on(['repository.created'], (ctx) => {
+  app.on(['repository.created'], (ctx) => {
   // ctx.isBot
   // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
-})
+  })
 // app.on(['push'], async (ctx) => {
 //   // ctx.octokit.issues.create(ctx.issue({
 //   //   body: 'test',
@@ -154,7 +153,7 @@ app.on(['repository.created'], (ctx) => {
 //   const push = context.payload
 
 //   // robot.log.info(context, context.github)
-  
+
 //       const compare = await context.octokit.repos.compareCommits(ctx.repo({
 //         base: push.before,
 //         head: push.after
@@ -168,8 +167,7 @@ app.on(['repository.created'], (ctx) => {
 //           }))
 //           const text = Buffer.from(content.data.content, 'base64').toString()
 //           Object.assign(linterItems, {cwd: '', fix: true, filename: file.filename})
-  
-         
+
 //             if (err) {
 //               throw new Error(err)
 //             }
@@ -186,20 +184,20 @@ app.on(['repository.created'], (ctx) => {
 //                 }))
 //               }
 //             }))
-         
+
 //         }
 //       }))
 // })
 
 // all copied probot bots
 // require("./Stale")(app)
-require('./Linter')(app)
+  require('./Linter')(app)
 // require('./MistakenPR')(app)
-require("./DupIssue")(app)
-require('./zeon_canvas')(app)
+  require('./DupIssue')(app)
+  require('./zeon_canvas')(app)
   // For more information on building apps:
   // https://probot.github.io/docs/
 
   // To get your app running against GitHub, see:
   // https://probot.github.io/docs/development/
-};
+}
