@@ -84,6 +84,7 @@ module.exports = async (app) => {
             isUI = true
           }
           let func
+          console.log(fdata, 'STUPID APP')
           try {
             func = eval(fdata)
           } catch (e) {
