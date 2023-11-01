@@ -141,15 +141,26 @@ ${previews.map((p) => {
         let fdata = await fetch(file.raw_url).then(r => r.text())
         const fileName = path.join(__dirname, 'temp_', file.filename)
         fs.writeFileSync(fileName, fdata)
-        const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + fileName).toString()
+        try {
+          const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + fileName).toString()
         ctx.octokit.issues.createComment(
-    ctx.issue({ body: `# Test results \`${file.filename}\`:\n 
+    ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n 
     \`\`\`
     ${str}
     \`\`\`
      `
     })
       )
+        } catch (e) {
+          ctx.octokit.issues.createComment(
+            ctx.issue({ body: `# ❌ Test results \`${file.filename}\`:\n 
+            \`\`\`
+            ${e.message}
+            \`\`\`
+             `
+            })
+              )
+        }
         fs.rmSync(fileName)
       }
     }
