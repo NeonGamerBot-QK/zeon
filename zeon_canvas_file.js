@@ -19,7 +19,7 @@ module.exports = (f) => {
     describe('Tests on code', () => {
       let file
       it('should render as valid js code', () => {
-        file = require(path.join(__dirname, 'temp_', f))
+        file = require(path.resolve(f))
       })
       it('should export something', () => {
         expect(file).toBeDefined()
@@ -31,11 +31,11 @@ module.exports = (f) => {
         expect(file.length === 1).toBeTruthy()
       })
 
-      if (fs.readFileSync(path.join(__dirname, f)).toString().split('\n')[0] === '//WEBEDITOROVERRIDE') {
+      if (fs.readFileSync(path.resolve(f)).toString().split('\n')[0] === '//WEBEDITOROVERRIDE') {
         describe('Web UI file tests:', () => {
           let meta
           it('should contain parsable metadata', () => {
-            const rawMeta = fs.readFileSync(path.join(__dirname, 'temp_', f)).toString().split('\n')[1].split('//meta:')[1]
+            const rawMeta = fs.readFileSync(path.resolve(f)).toString().split('\n')[1].split('//meta:')[1]
             meta = JSON.parse(rawMeta)
           })
 
