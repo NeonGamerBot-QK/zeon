@@ -22,7 +22,7 @@ const createCanva = (func) => {
       const files = await fetch(process.env.CDN_URL, {
         'headers': {
           'Authorization': process.env.CDN_KEY,
-          'format': 'name',
+          'format': 'uuid',
           'image-compression-percent': 3,
       // 'content-type': 'multipart/form-data; --'+form.getBoundary()
           ...form.getHeaders()
@@ -84,7 +84,7 @@ module.exports = async (app) => {
             isUI = true
           }
           let func
-          console.log(fdata, 'STUPID APP')
+          // console.log(fdata, 'STUPID APP')
           try {
             func = eval(fdata)
           } catch (e) {
