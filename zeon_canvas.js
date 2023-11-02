@@ -26,6 +26,8 @@ const createCanva = (func) => {
           'Authorization': process.env.CDN_KEY,
           'format': 'uuid',
           'image-compression-percent': 3,
+          'Expires-At': '365d',
+          
       // 'content-type': 'multipart/form-data; --'+form.getBoundary()
           ...form.getHeaders()
         },
