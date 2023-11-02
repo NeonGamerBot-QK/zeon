@@ -27,7 +27,7 @@ const createCanva = (func) => {
           'format': 'uuid',
           'image-compression-percent': 3,
           'Expires-At': '365d',
-          
+
       // 'content-type': 'multipart/form-data; --'+form.getBoundary()
           ...form.getHeaders()
         },
