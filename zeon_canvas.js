@@ -151,22 +151,25 @@ ${previews.map((p) => {
           stream.on('close', (e) => {
             app.log('\t' + (chunks).join('').split('\n').join('\n\t'))
             ctx.octokit.issues.createComment(
-      ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n \`\`\`\n${'\t' + (chunks).join('')}\n\`\`\`
+      ctx.issue({ body: `# ${chunks.some(e => e.includes('FAIL'))  ? '❌' : '✅'} Test results \`${file.filename}\`:\n \`\`\`\n${(chunks).join('')}\n\`\`\`
        `
       })
         )
           })
         } catch (e) {
           ctx.octokit.issues.createComment(
-            ctx.issue({ body: `# ❌ Test results \`${file.filename}\`:\n 
+            ctx.issue({ body: `# ❌❌ Test results \`${file.filename}\`:\n 
             \`\`\`
             ${e.message}
             \`\`\`
              `
             })
               )
+              
+        } finally {
+          fs.rmSync(fileName)
         }
-        fs.rmSync(fileName)
+      
       }
     }
   })
