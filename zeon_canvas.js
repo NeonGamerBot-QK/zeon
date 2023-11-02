@@ -142,16 +142,24 @@ ${previews.map((p) => {
         const fileName = path.join(__dirname, 'temp_', file.filename)
         fs.writeFileSync(fileName, fdata)
         try {
-          const str = require('child_process').execSync('npx --yes jest --verbose zeon_canvas_file.test.js ' + path.basename(file.filename)).toString()
-          app.log(str)
-          ctx.octokit.issues.createComment(
-    ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n 
-    \`\`\`
-    ${str}
-    \`\`\`
-     `
-    })
-      )
+          const chunks = []
+          const stream = require('child_process').exec('npx --yes jest --verbose zeon_canvas_file.test.js ' + path.basename(file.filename)).stderr.on('data', (d) => {
+            chunks.push(d)
+          })
+          
+      
+          stream.on('close', (e) => {
+            app.log(Buffer.concat(chunks).toString())
+            ctx.octokit.issues.createComment(
+      ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n 
+      \`\`\`
+      ${Buffer.concat(chunks).toString()}
+      \`\`\`
+       `
+      })
+        )
+          })
+         
         } catch (e) {
           ctx.octokit.issues.createComment(
             ctx.issue({ body: `# ❌ Test results \`${file.filename}\`:\n 
