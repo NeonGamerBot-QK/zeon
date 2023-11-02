@@ -149,11 +149,11 @@ ${previews.map((p) => {
           })
 
           stream.on('close', (e) => {
-            app.log((chunks).join('[SPLIT]'))
+            app.log('\t'+(chunks).join('').split('\n').join('\n\t'))
             ctx.octokit.issues.createComment(
       ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n 
       \`\`\`
-      ${(chunks).join('[SPLIT]')}
+      ${'\t'+(chunks).join('').split('\n').join('\n\t')}
       \`\`\`
        `
       })
