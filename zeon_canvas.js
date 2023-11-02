@@ -144,16 +144,17 @@ ${previews.map((p) => {
         try {
           const chunks = []
           const stream = require('child_process').exec('npx --yes jest --verbose zeon_canvas_file.test.js ' + path.basename(file.filename)).stderr.on('data', (d) => {
+           app.log(d)
             chunks.push(d)
           })
           
       
           stream.on('close', (e) => {
-            app.log(Buffer.concat(chunks).toString())
+            app.log((chunks).join('[SPLIT]'))
             ctx.octokit.issues.createComment(
       ctx.issue({ body: `# ✅ Test results \`${file.filename}\`:\n 
       \`\`\`
-      ${Buffer.concat(chunks).toString()}
+      ${(chunks).join('[SPLIT]')}
       \`\`\`
        `
       })
