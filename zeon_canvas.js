@@ -155,6 +155,7 @@ ${previews.map((p) => {
        `
       })
         )
+        fs.rmSync(fileName)
           })
         } catch (e) {
           ctx.octokit.issues.createComment(
@@ -165,9 +166,8 @@ ${previews.map((p) => {
              `
             })
               )
-        } finally {
-          fs.rmSync(fileName)
-        }
+              fs.rmSync(fileName)
+        } 
       }
     }
   })
