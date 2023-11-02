@@ -151,7 +151,7 @@ ${previews.map((p) => {
           stream.on('close', (e) => {
             app.log('\t' + (chunks).join('').split('\n').join('\n\t'))
             ctx.octokit.issues.createComment(
-      ctx.issue({ body: `# ${chunks.some(e => e.includes('FAIL'))  ? '❌' : '✅'} Test results \`${file.filename}\`:\n \`\`\`\n${(chunks).join('')}\n\`\`\`
+      ctx.issue({ body: `# ${chunks.some(e => e.includes('FAIL')) ? '❌' : '✅'} Test results \`${file.filename}\`:\n \`\`\`\n${(chunks).join('')}\n\`\`\`
        `
       })
         )
@@ -165,11 +165,9 @@ ${previews.map((p) => {
              `
             })
               )
-              
         } finally {
           fs.rmSync(fileName)
         }
-      
       }
     }
   })
