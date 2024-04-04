@@ -25,7 +25,7 @@ const deploy_repos = [
   }
 ]
 const fs = require('fs')
-const { execSync } = require('child_process')
+const { execSync, exec } = require('child_process')
 const path = require('path')
 const fetch = require('node-fetch')
 /**
@@ -188,13 +188,48 @@ module.exports = app => {
 //         }
 //       }))
 // })
+app.on('push', (ctx) => {
+  if(ctx.payload.repository.name !== 'zeon') {
+    app.log(`Not my repo to pull from`)
+    return
+  }
+  if(ctx.isBot) {
+    app.log(`Not writing comments for bot`)
+    return;
+  }
+  exec(`git pull`, (err, stdout, stderr) => {
+    app.log(stdout, stderr)
+    if (err) return app.log(err)
+    // if(stderr.length > 10) {
+    //   app.log(stderr)
+    //   return;
+    // }
+    console.log(ctx.payload)
+    ctx.octokit.repos.createCommitComment({
+      commit_sha: ctx.payload.after,
+      repo: ctx.payload.repository.name,
+      body: `\`\`\`diff\n${stdout}\`\`\``,
+      owner: ctx.payload.repository.owner.name,
+    }).then(() => {
+      app.log('App Shuttding down (5s)')
 
+      setTimeout(() => {
+        app.log('App Shuttding down (EXIT)')
+        process.exit(0)
+      }, 5_000)
+    })
+  })
+})
 // all copied probot bots
 // require("./Stale")(app)
   require('./Linter')(app)
 // require('./MistakenPR')(app)
   require('./DupIssue')(app)
   require('./zeon_canvas')(app)
+  require('./SimilarCode')(app)
+  require('./autoApproval/index')(app)
+  // hard boy
+  require('./weekly-digest/index')
   // For more information on building apps:
   // https://probot.github.io/docs/
 
