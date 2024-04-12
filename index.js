@@ -52,7 +52,15 @@ module.exports = app => {
     //   ctx.issue({ body: "Hello World!" })
     // );
   })
+  // app.on('')
+  // todo intervaled pkg check for major and minor NO PATCH
+// setInterval(async () => {
+//   const octokit = await app.auth()
+//   // octokit.issues.c 
+//   const reposToCheck = octokit.repos()
 
+// },  2*60*60 * 1_000)
+  // app.auth().then(e => )
   app.on(['issues.closed'], async ctx => {
     app.log.info('closed issue')
     return ctx.octokit.issues.createComment(
@@ -188,11 +196,13 @@ module.exports = app => {
 //         }
 //       }))
 // })
+
 app.on('push', (ctx) => {
   if(ctx.payload.repository.name !== 'zeon') {
     app.log(`Not my repo to pull from`)
     return
   }
+
   if(ctx.isBot) {
     app.log(`Not writing comments for bot`)
     return;
@@ -222,14 +232,25 @@ app.on('push', (ctx) => {
 })
 // all copied probot bots
 // require("./Stale")(app)
-  require('./Linter')(app)
+  // try {require('./Linter')(app) } catch(e) {}
 // require('./MistakenPR')(app)
-  require('./DupIssue')(app)
-  require('./zeon_canvas')(app)
-  require('./SimilarCode')(app)
-  require('./autoApproval/index')(app)
-  // hard boy
-  require('./weekly-digest/index')
+const filePaths = ['./DupIssue', './Linter','./zeon_canvas','./SimilarCode','./autoApproval/index',
+// './weekly-digest/index'
+]
+filePaths.forEach((e) => {
+  try {
+    require(e)(app)
+    app.log(`Loaded module ${e}`)
+  } catch (ee) {
+    app.log(`Failed to load ${e}\n${ee.message}`)
+  }
+})
+  // require('./DupIssue')(app)
+  // require('./zeon_canvas')(app)
+  // require('./SimilarCode')(app)
+  // require('./autoApproval/index')(app)
+  // // hard boy
+  // require('./weekly-digest/index')(app)
   // For more information on building apps:
   // https://probot.github.io/docs/
 
