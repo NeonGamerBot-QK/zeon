@@ -234,7 +234,7 @@ app.on('push', (ctx) => {
 // require("./Stale")(app)
   // try {require('./Linter')(app) } catch(e) {}
 // require('./MistakenPR')(app)
-const filePaths = ['./DupIssue', './Linter','./zeon_canvas','./SimilarCode','./autoApproval/index',
+const filePaths = ['./DupIssue', './Linter','./zeon_canvas','./SimilarCode','./autoApproval/index', './run_automations_for_vencord_css.js',
 // './weekly-digest/index'
 ]
 filePaths.forEach((e) => {
@@ -245,6 +245,7 @@ filePaths.forEach((e) => {
     app.log(`Failed to load ${e}\n${ee.message}`)
   }
 })
+//  reqhjre
   // require('./DupIssue')(app)
   // require('./zeon_canvas')(app)
   // require('./SimilarCode')(app)

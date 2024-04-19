@@ -1,12 +1,47 @@
 AggregateError: 
-    ReferenceError: context is not defined
-        at /workspaces/zeon/index.js:146:16
-        at /workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:177:14
-        at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-        at async Promise.all (index 0)
-        at async middleware (/workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
-    at /workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:187:19
-    at runNextTicks (node:internal/process/task_queues:60:5)
-    at listOnTimeout (node:internal/timers:540:9)
-    at process.processTimers (node:internal/timers:514:7)
-    at async middleware (/workspaces/zeon/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
+    TypeError: Cannot read properties of undefined (reading 'includes')
+        at includes (/workspaces/zeon/zeon_canvas.js:46:41)
+        at handler (/workspaces/zeon/node_modules/@octokit/webhooks/dist-src/event-handler/receive.js:41:20)
+        at processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Promise.all (index 1)
+        at Object.<anonymous> (/workspaces/zeon/test/index.test.js:85:5)
+    TypeError: Cannot read properties of undefined (reading 'full_name')
+        at full_name (/workspaces/zeon/SimilarCode/index.js:5:65)
+        at handler (/workspaces/zeon/node_modules/@octokit/webhooks/dist-src/event-handler/receive.js:41:20)
+        at processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at async Promise.all (index 2)
+        at Object.<anonymous> (/workspaces/zeon/test/index.test.js:85:5)
+    HttpError: request to https://api.github.com/repos/hiimbex/testing-things/contents/.github%2Fautoapproval.yml failed, reason: Nock: No match for request {
+      "method": "GET",
+      "url": "https://api.github.com/repos/hiimbex/testing-things/contents/.github%2Fautoapproval.yml",
+      "headers": {
+        "accept": [
+          "application/vnd.github.v3.raw"
+        ],
+        "user-agent": [
+          "probot/12.3.1 octokit-core.js/3.6.0 Node.js/20.11.1 (linux; x64)"
+        ],
+        "authorization": [
+          "token test"
+        ],
+        "accept-encoding": [
+          "gzip,deflate"
+        ],
+        "connection": [
+          "close"
+        ]
+      }
+    }
+        at /workspaces/zeon/node_modules/@octokit/core/node_modules/@octokit/request/dist-src/fetch-wrapper.js:92:15
+        at processTicksAndRejections (node:internal/process/task_queues:95:5)
+        at sendRequestWithRetries (/workspaces/zeon/node_modules/@octokit/auth-app/dist-node/index.js:398:12)
+        at getConfigFile (/workspaces/zeon/node_modules/@probot/octokit-plugin-config/dist-src/util/get-config-file.js:36:35)
+        at getConfigFiles (/workspaces/zeon/node_modules/@probot/octokit-plugin-config/dist-src/util/get-config-files.js:14:31)
+        at composeConfigGet (/workspaces/zeon/node_modules/@probot/octokit-plugin-config/dist-src/compose-config-get.js:11:19)
+        at Context.config (/workspaces/zeon/node_modules/probot/src/context.ts:243:31)
+        at /workspaces/zeon/autoApproval/index.js:25:20
+        at async Promise.all (index 3)
+        at Object.<anonymous> (/workspaces/zeon/test/index.test.js:85:5)
+    at /workspaces/zeon/node_modules/@octokit/webhooks/dist-src/event-handler/receive.js:49:23
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at Object.<anonymous> (/workspaces/zeon/test/index.test.js:85:5)
