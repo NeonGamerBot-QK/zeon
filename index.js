@@ -67,6 +67,28 @@ module.exports = app => {
       ctx.issue({ body: '## Thank you for your issue!' })
     )
   })
+  app.on(['pull_request.opened'], async ctx => {
+    if(ctx.payload.repository.name == ctx.payload.repository.owner.login) {
+await ctx.octokit.issues.createComment({
+  owner: ctx.payload.repository.owner.login, 
+  repo: ctx.payload.repository.name,
+  issue_number: ctx.payload.number,
+  body: `## Please do not Make PR's\nPR's have been disabled in this repo if you want to contribute contact @NeonGamerBot-QK Directly via email.\nThanks.\n![No PR](https://raw.githubusercontent.com/NeonGamerBot-QK/NeonGamerBot-QK/main/no-pr.jpg)`,
+})
+      await ctx.octokit.issues.update({
+        owner: ctx.payload.repository.owner.login, 
+        repo: ctx.payload.repository.name,
+        issue_number: ctx.payload.number,
+        state: 'closed'
+      })
+      await ctx.octokit.issues.lock({
+        owner: ctx.payload.repository.owner.login, 
+        repo: ctx.payload.repository.name,
+        issue_number: ctx.payload.number,
+        lock_reason: "off-topic",
+      })
+    }
+  })
   app.on('pull_request.closed', ctx => {
     // if(!allowed_repos.includes(context.payload.repository.html_url)) {
     //   app.log.info("not running on " + context.payload.repository.html_url)
