@@ -28,7 +28,7 @@ module.exports = (app) => {
     // determine if the PR has any "blacklisted" labels
     const prLabels = pr.labels.map((label) => label.name)
     let blacklistedLabels = []
-    if (config.blacklisted_labels !== undefined) {
+    if (config && config.blacklisted_labels !== undefined) {
       blacklistedLabels = config.blacklisted_labels
         .filter((blacklistedLabel) => prLabels.includes(blacklistedLabel))
 

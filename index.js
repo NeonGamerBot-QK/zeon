@@ -61,6 +61,48 @@ module.exports = app => {
 
 // },  2*60*60 * 1_000)
   // app.auth().then(e => )
+    app.on(['pull_request.opened', 'pull_request.edited'], async (ctx) => {
+      const {parser } = require('@conventional-commits/parser')
+      try {
+        parser(ctx.payload.pull_request.title)
+      // if(ctx.octokit.ge )
+      } catch (e) {
+// report error
+setTimeout(async () => {
+try {
+  console.clear()
+  console.error(e, ctx.payload.pull_request.number)
+  console.error(`Wow it broke`)
+  await ctx.octokit.issues.createComment({
+    repo: ctx.payload.repository.name,
+    issue_number: ctx.payload.pull_request.number,
+    // : ctx.payload.pull_request.number,
+    owner: ctx.payload.repository.owner.login,
+  
+    body: `## Hey there and thank you for opening this pull request! 👋🏼
+    
+    I require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted as  without it being in that order i can read your PR correctly.
+      
+  Available types:
+   - feat: A new feature
+   - fix: A bug fix
+   - docs: Documentation only changes
+   - style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+   - refactor: A code change that neither fixes a bug nor adds a feature
+   - perf: A code change that improves performance
+   - test: Adding missing tests or correcting existing tests
+   - build: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+   - ci: Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
+   - chore: Other changes that don't modify src or test files
+   - revert: Reverts a previous commit
+    `,
+    
+    
+  })
+} catch (e) {}
+}, 250)
+      }
+    })
   app.on(['issues.closed'], async ctx => {
     app.log.info('closed issue')
     return ctx.octokit.issues.createComment(
@@ -113,7 +155,7 @@ await ctx.octokit.issues.createComment({
     // Then sets the deployment status to success
     // NOTE: this example doesn't actually integrate with a cloud
     // provider to deploy your app, it just demos the basic API usage.
-    app.log.info(context.payload.repository.html_url)
+    // app.log.info(context.payload.repository.html_url)
 
     if (!allowed_repos.includes(context.payload.repository.html_url)) {
       app.log.info('not running on ' + context.payload.repository.html_url)
@@ -230,13 +272,13 @@ app.on('push', (ctx) => {
     return;
   }
   exec(`git pull`, (err, stdout, stderr) => {
-    app.log(stdout, stderr)
+    // app.log(stdout, stderr)
     if (err) return app.log(err)
     // if(stderr.length > 10) {
     //   app.log(stderr)
     //   return;
     // }
-    console.log(ctx.payload)
+    // console.log(ctx.payload)
     ctx.octokit.repos.createCommitComment({
       commit_sha: ctx.payload.after,
       repo: ctx.payload.repository.name,

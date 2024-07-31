@@ -16,6 +16,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@conventional-commits/parser": "^0.4.1",
     "@hapi/joi": "^17.1.1",
     "canvas": "^2.11.2",
     "compromise": "^14.9.0",
