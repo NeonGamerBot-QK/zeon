@@ -1,8 +1,9 @@
 AggregateError: 
-    HttpError: Not Found
-        at /home/neon/GitHub/zeon/node_modules/@octokit/core/node_modules/@octokit/request/dist-node/index.js:86:21
+    TypeError: Cannot read properties of undefined (reading 'listFiles')
+        at similarSearch (/home/neon/GitHub/zeon/SimilarCode/index.js:9:61)
+        at /home/neon/GitHub/zeon/node_modules/@octokit/webhooks/dist-node/index.js:177:14
         at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
-        at async sendRequestWithRetries (/home/neon/GitHub/zeon/node_modules/@octokit/auth-app/dist-node/index.js:398:12)
-        at async Job.doExecute (/home/neon/GitHub/zeon/node_modules/bottleneck/light.js:405:18)
+        at async Promise.all (index 4)
+        at async middleware (/home/neon/GitHub/zeon/node_modules/@octokit/webhooks/dist-node/index.js:355:5)
     at /home/neon/GitHub/zeon/node_modules/@octokit/webhooks/dist-node/index.js:187:19
     at async middleware (/home/neon/GitHub/zeon/node_modules/@octokit/webhooks/dist-node/index.js:355:5)

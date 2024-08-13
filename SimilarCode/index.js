@@ -6,7 +6,7 @@ module.exports = (app) => {
 
         const contents = [];
         const issue = context.issue();
-        const allFiles = await context.github.pullRequests.listFiles(issue);
+        const allFiles = await context.octokit.pullRequests.listFiles(issue);
         for (const file of allFiles.data) {
 
             // Deleted lines

@@ -64,13 +64,51 @@ module.exports = app => {
     app.on(['pull_request.opened', 'pull_request.edited'], async (ctx) => {
       const {parser } = require('@conventional-commits/parser')
       try {
-        parser(ctx.payload.pull_request.title)
+     const data =    parser(ctx.payload.pull_request.title)
+const type = data.children[0].children.find(e => e.type == 'type').value
+const scope = data.children[0].children.find(e => e.type == 'scope')
       // if(ctx.octokit.ge )
+      // const template = ctx.config('zeon/')
+      try {
+const template = await ctx.octokit.rest.repos.getContent({
+  owner: ctx.payload.repository.owner.login,
+  repo: ctx.payload.repository.name,
+  path: `.github/zeon/${type}-message.md`
+})
+let templ = Buffer.from(template.data.content, 'base64').toString()
+const Ctx = {
+  pr_title: ctx.payload.pull_request.title,
+  pr_scope: scope ? scope.value : "",
+  issue_number: ctx.payload.pull_request.number,
+  repo_owner: ctx.payload.repository.owner.login,
+  repo_name: ctx.payload.repository.name,
+  stamp: Date.now(),
+  stamp_str: new Date().toString()
+}
+let content = templ
+Object.entries(Ctx).forEach(([key,value]) => {
+content = content.replaceAll(`{{${key}}}`, value)
+})
+setTimeout(() => {
+   ctx.octokit.issues.createComment({
+    repo: ctx.payload.repository.name,
+    issue_number: ctx.payload.pull_request.number,
+    // : ctx.payload.pull_request.number,
+    owner: ctx.payload.repository.owner.login,
+  body: content
+  })
+}, 450)
+
       } catch (e) {
-// report error
+console.error(e)
+      }
+
+      } catch (e) {
+console.error(e)
+        // report error
 setTimeout(async () => {
 try {
-  console.clear()
+  // console.clear()
   console.error(e, ctx.payload.pull_request.number)
   console.error(`Wow it broke`)
   await ctx.octokit.issues.createComment({
@@ -297,7 +335,10 @@ app.on('push', (ctx) => {
 // require("./Stale")(app)
   // try {require('./Linter')(app) } catch(e) {}
 // require('./MistakenPR')(app)
-const filePaths = ['./DupIssue', './Linter','./zeon_canvas','./SimilarCode','./autoApproval/index', './run_automations_for_vencord_css.js',
+const filePaths = [
+  // './DupIssue', './Linter','./zeon_canvas','./SimilarCode',
+  // './autoApproval/index',
+   './run_automations_for_vencord_css.js',
 // './weekly-digest/index'
 ]
 filePaths.forEach((e) => {
