@@ -8,3 +8,4 @@ coverage
 # temp*
 out
 tmp_
+error.txt

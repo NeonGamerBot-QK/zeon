@@ -336,7 +336,7 @@ app.on('push', (ctx) => {
   // try {require('./Linter')(app) } catch(e) {}
 // require('./MistakenPR')(app)
 const filePaths = [
-  // './DupIssue', './Linter','./zeon_canvas','./SimilarCode',
+  './DupIssue', './Linter','./zeon_canvas','./SimilarCode',
   // './autoApproval/index',
    './run_automations_for_vencord_css.js',
 // './weekly-digest/index'
