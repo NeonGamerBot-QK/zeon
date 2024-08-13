@@ -80,9 +80,8 @@ try {
     owner: ctx.payload.repository.owner.login,
   
     body: `## Hey there and thank you for opening this pull request! 👋🏼
-    
-    I require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted as  without it being in that order i can read your PR correctly.
-      
+I require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted as  without it being in that order i can read your PR correctly.
+
   Available types:
    - feat: A new feature
    - fix: A bug fix
