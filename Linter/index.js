@@ -66,7 +66,7 @@ module.exports = robot => {
             //   context.octokit.repos.createOrUpdateFileContents()
               context.octokit.repos.createOrUpdateFileContents(context.repo({
                 path: file.filename,
-                message: `Fix lint errors for ${file.filename}\n\nCo-authored-by: ${context.payload.pusher.name} <${context.payload.pusher.email}>`,
+                message: `enhancement(lint): Fix lint errors for ${file.filename}\n\nCo-authored-by: ${context.payload.pusher.name} <${context.payload.pusher.email}>`,
                 content: Buffer.from(result).toString('base64'),
                 sha: content.data.sha,
                 branch
