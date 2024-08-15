@@ -1,6 +1,9 @@
 const standard = require("standard");
 
 const prettier = require("prettier");
+const excludedRepos = [
+  "https://github.com/NeonGamerBot-QK/catppuccin-userstyles"
+]
 /**
  * This is the main entrypoint to your Probot app
  * @param {import('probot').Probot} robot
@@ -8,6 +11,10 @@ const prettier = require("prettier");
 module.exports = (robot) => {
   robot.on("push", async (context) => {
     if (context.payload.pusher.name.includes("zeon")) return; // ignore my commitss
+    if (excludedRepos.includes(context.payload.repository.html_url)) {
+      robot.log.info('not running on ' + context.payload.repository.html_url)
+      return;
+    }
     let exclude = [];
     const linterItems = {
       plugins: [
