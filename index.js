@@ -270,7 +270,7 @@ await ctx.octokit.issues.createComment({
     );
 
     const branch = push.ref.replace("refs/heads/", "");
-    compare.data.files.forEach(file => {
+    compare.data.files.forEach(async file => {
       console.log(file)
       if (file.filename.includes('.DS_STORE')) {
         const content = await context.octokit.repos.getContent(
