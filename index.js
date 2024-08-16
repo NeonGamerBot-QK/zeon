@@ -255,7 +255,7 @@ await ctx.octokit.issues.createComment({
   // ctx.isBot
   // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
   })
-  app.on(['push'], ctx => {
+  app.on(['push'], async ctx => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
     const push = ctx.payload;
