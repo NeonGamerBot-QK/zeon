@@ -255,6 +255,39 @@ await ctx.octokit.issues.createComment({
   // ctx.isBot
   // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
   })
+  app.on(['push'], ctx => {
+    const context = ctx;
+    if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
+    const push = ctx.payload;
+
+    // robot.log.info(context, context.github)
+
+    const compare = await ctx.octokit.repos.compareCommits(
+      context.repo({
+        base: push.before,
+        head: push.after,
+      }),
+    );
+
+    const branch = push.ref.replace("refs/heads/", "");
+    compare.data.files.forEach(file => {
+      console.log(file)
+      if (file.filename.includes('.DS_STORE')) {
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        ctx.octokit.repos.deleteFile(ctx.repo({
+          sha: content.data.sha,
+          path: file.filename,
+          branch,
+          message: "chore(cleanup): Delete .DS_STORE files"
+        }))
+      }
+    })
+  })
 // app.on(['push'], async (ctx) => {
 //   // ctx.octokit.issues.create(ctx.issue({
 //   //   body: 'test',
