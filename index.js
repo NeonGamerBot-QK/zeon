@@ -306,7 +306,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             message: "chore(cleanup): Delete .example_cmd file",
           }),
         );
-      } else  if (file.filename.includes(".create_readme")) {
+      } else if (file.filename.includes(".create_readme")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
             path: file.filename,
@@ -322,16 +322,19 @@ I require pull request titles to follow the [Conventional Commits specification]
           }),
         );
         const config = context.config("zeon/readme.yml") || {};
-        let example_readme = fs.readFileSync("example_readme.md").toString()
-       
-          Object.entries({
-            github_username: config.github_username || ctx.payload.repository.owner.login,
-            repo_name: config.repo_name || ctx.payload.repository.name,
-            ...config,
-          }).forEach(([key, value]) => {
-            example_readme = example_readme.replaceAll(key, value).replaceAll(`{${key}}`, value)
-          })
-  
+        let example_readme = fs.readFileSync("example_readme.md").toString();
+
+        Object.entries({
+          github_username:
+            config.github_username || ctx.payload.repository.owner.login,
+          repo_name: config.repo_name || ctx.payload.repository.name,
+          ...config,
+        }).forEach(([key, value]) => {
+          example_readme = example_readme
+            .replaceAll(key, value)
+            .replaceAll(`{${key}}`, value);
+        });
+
         try {
           context.octokit.repos.createOrUpdateFileContents(
             context.repo({
@@ -341,10 +344,10 @@ I require pull request titles to follow the [Conventional Commits specification]
             }),
           );
         } catch (e) {
-          console.error(e)
-          console.log(0, `failed`)
+          console.error(e);
+          console.log(0, `failed`);
         }
-      } 
+      }
     });
   });
 
