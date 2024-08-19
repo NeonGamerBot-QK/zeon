@@ -362,7 +362,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             message: `chore(cleanup): Delete ${file.filename} file`,
           }),
         );
-        const mitData = require('mit')(require('./package.json').author)
+        const mitData = require("mit")(require("./package.json").author);
         try {
           context.octokit.repos.createOrUpdateFileContents(
             context.repo({
