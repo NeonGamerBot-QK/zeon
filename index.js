@@ -378,7 +378,24 @@ I require pull request titles to follow the [Conventional Commits specification]
       }
     });
   });
+  app.on(["push"], async (ctx) => {
+    const context = ctx;
+    if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
+    const push = ctx.payload;
+    console.log(push)
+    if (null) {
+      const compare = await ctx.octokit.repos.compareCommits(
+        context.repo({
+          base: push.before,
+          head: push.after,
+        }),
+      );
+  
+      const branch = push.ref.replace("refs/heads/", "");
+      compare.data.files.forEach(async (file) => { })
 
+  }
+  })
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
