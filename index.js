@@ -415,7 +415,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         }),
       );
 
-      console.log(`codeowners`,   compare.data.files);
+      console.log(`codeowners`, compare.data.files);
     }
   });
   app.on(["push"], async (ctx) => {
