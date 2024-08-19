@@ -273,6 +273,81 @@ I require pull request titles to follow the [Conventional Commits specification]
     // ctx.isBot
     // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
   });
+
+  app.on(["push"], async (ctx) => {
+    const context = ctx;
+    if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
+    const push = ctx.payload;
+
+    // robot.log.info(context, context.github)
+
+    const compare = await ctx.octokit.repos.compareCommits(
+      context.repo({
+        base: push.before,
+        head: push.after,
+      }),
+    );
+
+    const branch = push.ref.replace("refs/heads/", "");
+    compare.data.files.forEach(async (file) => {
+      console.log(file);
+      if (file.filename.includes(".example_cmd")) {
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: "chore(cleanup): Delete .example_cmd file",
+          }),
+        );
+      } else  if (file.filename.includes(".create_readme")) {
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: "chore(cleanup): Delete .example_cmd file",
+          }),
+        );
+        const config = context.config("zeon/readme.yml") || {};
+        let example_readme = fs.readFileSync("example_readme.md").toString()
+       
+          Object.entries({
+            github_username: config.github_username || ctx.payload.repository.owner.login,
+            repo_name: config.repo_name || ctx.payload.repository.name,
+            ...config,
+          }).forEach(([key, value]) => {
+            example_readme = example_readme.replaceAll(key, value).replaceAll(`{${key}}`, value)
+          })
+  
+        try {
+          context.octokit.repos.createOrUpdateFileContents(
+            context.repo({
+              path: file.filename,
+              message: `enhancement(readme): Create Readme.md`,
+              content: Buffer.from(example_readme).toString("base64"),
+            }),
+          );
+        } catch (e) {
+          console.error(e)
+          console.log(0, `failed`)
+        }
+      } 
+    });
+  });
+
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
