@@ -383,16 +383,34 @@ I require pull request titles to follow the [Conventional Commits specification]
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
     const push = ctx.payload;
     // console.log(push)
-    const compare = await ctx.octokit.repos.compareCommits(
+    
+    // );
+    const branch = push.ref.replace("refs/heads/", "");
+
+    if (push.commits.some(c => c.message.includes('zeon:test'))) {
+      const fc = push.commits.find(c => c.message.includes('zeon:test'))
+      console.log(fc, 'found commit')
+      ctx.octokit.repos.createCommitComment({
+        commit_sha: ctx.payload.after,
+        repo: ctx.payload.repository.name,
+        body: `Hello World! (triggered from cmd: \`zeon:test\`)`,
+        owner: ctx.payload.repository.owner.name,
+      })
+    } else if (push.commits.some(c => c.message.includes('zeon:codeowners'))) {
+      const fc = push.commits.find(c => c.message.includes('zeon:codeowners'))
+      // ctx.octokit.repos.createCommitComment({
+      //   commit_sha: ctx.payload.after,
+      //   repo: ctx.payload.repository.name,
+      //   body: `Hello World! (triggered from cmd: \`zeon:test\`)`,
+      //   owner: ctx.payload.repository.owner.name,
+      // })
+      const compare = await ctx.octokit.repos.compareCommits(
       context.repo({
         base: push.before,
         head: push.after,
-      }),
-    );
-    const branch = push.ref.replace("refs/heads/", "");
-    console.log(compare.data.files);
-    if (null) {
-      compare.data.files.forEach(async (file) => {});
+      }))
+
+      console.log(`codeowners`, compare)
     }
   });
   app.on(["push"], async (ctx) => {
