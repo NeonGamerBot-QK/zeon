@@ -382,7 +382,7 @@ I require pull request titles to follow the [Conventional Commits specification]
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
     const push = ctx.payload;
-    console.log(push)
+    console.log(push);
     if (null) {
       const compare = await ctx.octokit.repos.compareCommits(
         context.repo({
@@ -390,12 +390,11 @@ I require pull request titles to follow the [Conventional Commits specification]
           head: push.after,
         }),
       );
-  
-      const branch = push.ref.replace("refs/heads/", "");
-      compare.data.files.forEach(async (file) => { })
 
-  }
-  })
+      const branch = push.ref.replace("refs/heads/", "");
+      compare.data.files.forEach(async (file) => {});
+    }
+  });
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
