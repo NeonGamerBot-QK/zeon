@@ -303,7 +303,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             sha: content.data.sha,
             path: file.filename,
             branch,
-            message: "chore(cleanup): Delete .example_cmd file",
+            message: `chore(cleanup): Delete ${file.filename} file`,
           }),
         );
       } else if (file.filename.includes(".create_readme")) {
@@ -318,7 +318,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             sha: content.data.sha,
             path: file.filename,
             branch,
-            message: "chore(cleanup): Delete .example_cmd file",
+            message: "chore(cleanup): Delete .create_readme file",
           }),
         );
         const config = context.config("zeon/readme.yml") || {};
@@ -338,7 +338,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         try {
           context.octokit.repos.createOrUpdateFileContents(
             context.repo({
-              path: file.filename,
+              path: `README.md`,
               message: `enhancement(readme): Create Readme.md`,
               content: Buffer.from(example_readme).toString("base64"),
             }),
@@ -346,6 +346,34 @@ I require pull request titles to follow the [Conventional Commits specification]
         } catch (e) {
           console.error(e);
           console.log(0, `failed`);
+        }
+      } else if (file.filename.includes(".create_mit")) {
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: `chore(cleanup): Delete ${file.filename} file`,
+          }),
+        );
+        const mitData = require('mit')(require('./package.json').author)
+        try {
+          context.octokit.repos.createOrUpdateFileContents(
+            context.repo({
+              path: `LICENSE.txt`,
+              message: `enhancement(LICENSE): Create LICENSE.txt`,
+              content: Buffer.from(mitData).toString("base64"),
+            }),
+          );
+        } catch (e) {
+          console.error(e);
+          console.log(1, `failed`);
         }
       }
     });
