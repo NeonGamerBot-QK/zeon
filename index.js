@@ -388,12 +388,11 @@ I require pull request titles to follow the [Conventional Commits specification]
         base: push.before,
         head: push.after,
       }),
-      
     );
     const branch = push.ref.replace("refs/heads/", "");
-console.log(compare.data.files)
+    console.log(compare.data.files);
     if (null) {
-      compare.data.files.forEach(async (file) => { })
+      compare.data.files.forEach(async (file) => {});
     }
   });
   app.on(["push"], async (ctx) => {
