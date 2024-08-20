@@ -512,6 +512,8 @@ url: "${ctx.payload.repository.html_url}"`;
     );
     console.log(diff);
     console.log(`ok now ai after this test`);
+    // prompt
+    //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
   });
   app.on(["push"], async (ctx) => {
     const context = ctx;
@@ -759,8 +761,8 @@ url: "${ctx.payload.repository.html_url}"`;
   const filePaths = [
     "./DupIssue",
     "./Linter",
-    "./zeon_canvas",
-    "./SimilarCode",
+    // "./zeon_canvas",
+    // "./SimilarCode",
     // './autoApproval/index',
     "./run_automations_for_vencord_css.js",
     // './weekly-digest/index'
