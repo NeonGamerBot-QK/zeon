@@ -498,8 +498,7 @@ I require pull request titles to follow the [Conventional Commits specification]
     if (push.commits.some((c) => c.message.includes("zeon:ai_comment"))) {
       const fc = push.commits.find((c) =>
         c.message.includes("zeon:ai_comment"),
-      )
-      ;
+      );
       //todo convert to octokti
       const messages = [
         {
