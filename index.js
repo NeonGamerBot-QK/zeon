@@ -382,8 +382,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         }
       } else if (file.filename.includes(".create_citation")) {
         // @see https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files
-        console.log(`created_at`, ctx.payload.repository.created_at);
-        const repoCreatedYear = new Date(ctx.payload.repository.created_at)
+        const repoCreatedYear = new Date(ctx.payload.repository.created_at * 1000)
           .toISOString()
           .split("T")[0];
         const content = await context.octokit.repos.getContent(
@@ -411,7 +410,7 @@ title: "${ctx.payload.repository.name}"
 version: 0.0.0
 date-released: ${repoCreatedYear}
 url: "${ctx.payload.repository.html_url}"`;
-          context.octokit.repos.createOrUpdateFileContents(
+         await  context.octokit.repos.createOrUpdateFileContents(
             context.repo({
               path: `CITATION.cff`,
               message: `ci(git): Create citations`,
