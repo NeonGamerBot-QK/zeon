@@ -541,10 +541,31 @@ url: "${ctx.payload.repository.html_url}"`;
       const out = JSON.parse(chatCompletion.choices[0].message.content);
       ctx.octokit.issues.createComment(
         ctx.repo({
-          body: out.summary,
+          body: out.summary + `<details>
+           <summary>Disclosure</summary>
+           <p>The above is AI generated</p>
+           ${config['ai-review']['allow-it-to-create-action'] ? `<p>The AI's actions will be taken and can be taken back later. </p>`:`<p>The AI's actions verdict was {verdict} but no action will be taken</p>`.replace('{verdict}', out.verdict)}
+         </details>`,
+          
           issue_number: ctx.payload.pull_request.number,
         }),
       );
+      if (config['ai-review']['allow-it-to-create-action']) {
+        switch (out.verdict) {
+          case 'decline':
+            await ctx.octokit.issues.update({
+              owner: ctx.payload.repository.owner.login,
+              repo: ctx.payload.repository.name,
+              issue_number: ctx.payload.number,
+              state: "closed",
+            });
+            break;
+          case 'accept':
+            //todo
+            // @see https://github.com/juliangruber/approve-pull-request-action/blob/master/index.js#L21-L25
+            break;
+        }
+      }
     }
   });
   app.on(["push"], async (ctx) => {
