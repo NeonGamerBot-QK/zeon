@@ -411,14 +411,17 @@ I require pull request titles to follow the [Conventional Commits specification]
           console.error(e);
           console.log(2, `failed`);
         }
-      } else if (file.filename.endsWith('.create_tts_file')) {
+      } else if (file.filename.endsWith(".create_tts_file")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
             path: file.filename,
             ref: branch,
           }),
         );
-        const [fileOutName, ...contentSplits] = Buffer.from(content.data.content, 'base64').toString()
+        const [fileOutName, ...contentSplits] = Buffer.from(
+          content.data.content,
+          "base64",
+        ).toString();
         ctx.octokit.repos.deleteFile(
           ctx.repo({
             sha: content.data.sha,
@@ -433,17 +436,17 @@ I require pull request titles to follow the [Conventional Commits specification]
           const mp3 = await ai_client.audio.speech.create({
             model: "tts-1",
             voice: "alloy",
-            input: contentSplits.join(' ').slice(0,4096),
+            input: contentSplits.join(" ").slice(0, 4096),
           });
           context.octokit.repos.createOrUpdateFileContents(
             context.repo({
               path: fileOutName,
               message: `assets(mp3): Create TTS file`,
-              content: Buffer.from(await mp3.arrayBuffer()).toString('base64'),
+              content: Buffer.from(await mp3.arrayBuffer()).toString("base64"),
             }),
           );
         } catch (e) {
-          console.error(`tts failed`, e)
+          console.error(`tts failed`, e);
         }
       }
     });
