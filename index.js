@@ -494,9 +494,11 @@ url: "${ctx.payload.repository.html_url}"`;
       }
     });
   });
-  app.on(["pull_request.opened"], (ctx) => {
+  app.on(["pull_request.opened"], async (ctx) => {
     const context = ctx;
     const push = ctx.payload;
+    const config = ctx.config('zeon/pr.yml')
+    console.log(config)
     console.log(push)
     console.log(`what to do next... (use payload to get patch, get patch to get tge prompted ans)`)
     const { data: diff } = await octokit.rest.pulls.get(context.repo({
