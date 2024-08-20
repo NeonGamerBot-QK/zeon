@@ -569,8 +569,8 @@ url: "${ctx.payload.repository.html_url}"`;
               owner: ctx.payload.repository.owner.login,
               repo: ctx.payload.repository.name,
               pull_number: number,
-              event: 'APPROVE'
-            })
+              event: "APPROVE",
+            });
             break;
         }
       }
