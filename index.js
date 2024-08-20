@@ -538,14 +538,11 @@ url: "${ctx.payload.repository.html_url}"`;
         chatCompletion.choices[0].message.content,
         "rip tokens used on this commit message",
       );
-      const out = JSON.parse(chatCompletion.choices[0].message.content);
-      ctx.octokit.issues.createComment({
-        commit_sha: ctx.payload.after,
-        repo: ctx.payload.repository.name,
+      const out = JSON.parse(chatCompletion.choices[0].message.content)
+      ctx.octokit.issues.createComment(ctx.repo({
         body: out.summary,
         issue_number: ctx.payload.pull_request.number,
-        owner: ctx.payload.repository.owner.name,
-      });
+      }));
     }
   });
   app.on(["push"], async (ctx) => {
