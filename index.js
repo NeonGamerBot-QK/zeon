@@ -43,7 +43,7 @@ module.exports = (app) => {
     app.log("LOADED UPTIME");
     setInterval(() => {
       fetch(process.env.UPTIME_URL).then(() => {
-        app.log("declared UPTIME");
+        // app.log("declared UPTIME");
       });
     }, 50 * 1000);
   }
@@ -504,7 +504,7 @@ url: "${ctx.payload.repository.html_url}"`;
     );
     const { data: diff } = await context.octokit.rest.pulls.get(
       context.repo({
-        pull_number: push.pull_number.number,
+        pull_number: push.pull_request.number,
         mediaType: {
           format: "patch",
         },
