@@ -502,7 +502,7 @@ url: "${ctx.payload.repository.html_url}"`;
     console.log(
       `what to do next... (use payload to get patch, get patch to get tge prompted ans)`,
     );
-    if (config['ai-review']) {
+    if (config["ai-review"]) {
       const { data: diff } = await context.octokit.rest.pulls.get(
         context.repo({
           pull_number: push.pull_request.number,
@@ -520,12 +520,16 @@ url: "${ctx.payload.repository.html_url}"`;
         },
         {
           role: "user",
-              // prompt
-      //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
-          content: `Decide if that file should be merged into the main branch.  write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines. The rules are: {rules}.`.replace('{rules}', config['ai-review']['rules']),
+          // prompt
+          //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
+          content:
+            `Decide if that file should be merged into the main branch.  write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines. The rules are: {rules}.`.replace(
+              "{rules}",
+              config["ai-review"]["rules"],
+            ),
         },
       ];
-  
+
       const chatCompletion = await ai_client.chat.completions.create({
         messages,
         model: "gpt-4o-mini",
@@ -540,9 +544,7 @@ url: "${ctx.payload.repository.html_url}"`;
         body: chatCompletion.choices[0].message.content,
         owner: ctx.payload.repository.owner.name,
       });
-  
     }
-    
   });
   app.on(["push"], async (ctx) => {
     const context = ctx;
