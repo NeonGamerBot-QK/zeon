@@ -502,18 +502,47 @@ url: "${ctx.payload.repository.html_url}"`;
     console.log(
       `what to do next... (use payload to get patch, get patch to get tge prompted ans)`,
     );
-    const { data: diff } = await context.octokit.rest.pulls.get(
-      context.repo({
-        pull_number: push.pull_request.number,
-        mediaType: {
-          format: "patch",
+    if (config['ai-review']) {
+      const { data: diff } = await context.octokit.rest.pulls.get(
+        context.repo({
+          pull_number: push.pull_request.number,
+          mediaType: {
+            format: "patch",
+          },
+        }),
+      );
+      // console.log(diff);
+      console.log(`ok now ai after this test`);
+      const messages = [
+        {
+          role: "user",
+          content: diff,
         },
-      }),
-    );
-    // console.log(diff);
-    console.log(`ok now ai after this test`);
-    // prompt
-    //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
+        {
+          role: "user",
+              // prompt
+      //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
+          content: `Decide if that file should be merged into the main branch.  write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines. The rules are: {rules}.`.replace('{rules}', config['ai-review']['rules']),
+        },
+      ];
+  
+      const chatCompletion = await ai_client.chat.completions.create({
+        messages,
+        model: "gpt-4o-mini",
+      });
+      console.log(
+        chatCompletion.choices[0].message.content,
+        "rip tokens used on this commit message",
+      );
+      ctx.octokit.issues.createComment({
+        commit_sha: ctx.payload.after,
+        repo: ctx.payload.repository.name,
+        body: chatCompletion.choices[0].message.content,
+        owner: ctx.payload.repository.owner.name,
+      });
+  
+    }
+    
   });
   app.on(["push"], async (ctx) => {
     const context = ctx;
