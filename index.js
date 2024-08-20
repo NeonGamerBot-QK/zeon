@@ -382,7 +382,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         }
       } else if (file.filename.includes(".create_citation")) {
         // @see https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files
-        console.log(`created_at`, ctx.payload.repository.created_at)
+        console.log(`created_at`, ctx.payload.repository.created_at);
         const repoCreatedYear = new Date(ctx.payload.repository.created_at)
           .toISOString()
           .split("T")[0];
