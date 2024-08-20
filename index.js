@@ -106,7 +106,7 @@ module.exports = (app) => {
           });
         }, 450);
       } catch (e) {
-        console.error(e);
+        // console.error(e);
       }
     } catch (e) {
       console.error(e);
@@ -497,7 +497,7 @@ url: "${ctx.payload.repository.html_url}"`;
   app.on(["pull_request.opened"], async (ctx) => {
     const context = ctx;
     const push = ctx.payload;
-    const config = ctx.config("zeon/pr.yml");
+    const config = await ctx.config("zeon/pr.yml");
     console.log(config);
     console.log(
       `what to do next... (use payload to get patch, get patch to get tge prompted ans)`,
@@ -510,7 +510,7 @@ url: "${ctx.payload.repository.html_url}"`;
         },
       }),
     );
-    console.log(diff);
+    // console.log(diff);
     console.log(`ok now ai after this test`);
     // prompt
     //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
