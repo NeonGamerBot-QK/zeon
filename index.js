@@ -499,9 +499,8 @@ url: "${ctx.payload.repository.html_url}"`;
     const push = ctx.payload;
     const config = ctx.config('zeon/pr.yml')
     console.log(config)
-    console.log(push)
     console.log(`what to do next... (use payload to get patch, get patch to get tge prompted ans)`)
-    const { data: diff } = await octokit.rest.pulls.get(context.repo({
+    const { data: diff } = await context.octokit.rest.pulls.get(context.repo({
       pull_number: push.pull_number.number,
       mediaType: {
         format: "patch",
