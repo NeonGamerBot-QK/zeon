@@ -568,7 +568,7 @@ url: "${ctx.payload.repository.html_url}"`;
             await ctx.octokit.rest.pulls.createReview({
               owner: ctx.payload.repository.owner.login,
               repo: ctx.payload.repository.name,
-              pull_number: number,
+              pull_number: ctx.payload.pull_request.number,
               event: "APPROVE",
             });
             break;
