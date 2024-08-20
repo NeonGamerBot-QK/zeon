@@ -498,7 +498,8 @@ I require pull request titles to follow the [Conventional Commits specification]
     if (push.commits.some((c) => c.message.includes("zeon:ai_comment"))) {
       const fc = push.commits.find((c) =>
         c.message.includes("zeon:ai_comment"),
-      );
+      )
+      ;
       //todo convert to octokti
       const messages = [
         {
@@ -518,7 +519,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         },
         {
           role: "user",
-          content: `create a commit comment off patch .make it use new lines. You are zeon.`,
+          content: `create a commit comment off patch .make it use new lines. You are zeon. Format it in MD . include no other extra commentary. Do not wrap it in a codeblock.`,
         },
       ];
       console.log(messages, fc.url + ".patch");
