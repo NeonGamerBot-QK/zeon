@@ -565,6 +565,12 @@ url: "${ctx.payload.repository.html_url}"`;
           case "accept":
             //todo
             // @see https://github.com/juliangruber/approve-pull-request-action/blob/master/index.js#L21-L25
+            await ctx.octokit.rest.pulls.createReview({
+              owner: ctx.payload.repository.owner.login,
+              repo: ctx.payload.repository.name,
+              pull_number: number,
+              event: 'APPROVE'
+            })
             break;
         }
       }
