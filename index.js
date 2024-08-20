@@ -497,18 +497,22 @@ url: "${ctx.payload.repository.html_url}"`;
   app.on(["pull_request.opened"], async (ctx) => {
     const context = ctx;
     const push = ctx.payload;
-    const config = ctx.config('zeon/pr.yml')
-    console.log(config)
-    console.log(`what to do next... (use payload to get patch, get patch to get tge prompted ans)`)
-    const { data: diff } = await context.octokit.rest.pulls.get(context.repo({
-      pull_number: push.pull_number.number,
-      mediaType: {
-        format: "patch",
-      },
-    }));
-    console.log(diff)
-    console.log(`ok now ai after this test`)
-  })
+    const config = ctx.config("zeon/pr.yml");
+    console.log(config);
+    console.log(
+      `what to do next... (use payload to get patch, get patch to get tge prompted ans)`,
+    );
+    const { data: diff } = await context.octokit.rest.pulls.get(
+      context.repo({
+        pull_number: push.pull_number.number,
+        mediaType: {
+          format: "patch",
+        },
+      }),
+    );
+    console.log(diff);
+    console.log(`ok now ai after this test`);
+  });
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
