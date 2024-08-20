@@ -90,7 +90,7 @@ module.exports = (robot) => {
               }
             })
             .catch((e) => {
-              console.error(e);
+              // console.error(e);
               // context.octokit.repos.createCommitComment(context.repo({
               //   commit_sha:  context.payload.
               // }))
