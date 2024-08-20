@@ -523,7 +523,7 @@ url: "${ctx.payload.repository.html_url}"`;
           // prompt
           //Decide if that file should be merged into the main branch. The rules are: {rules} . write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines.
           content:
-            `Decide if that file should be merged into the main branch.  write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines. The rules are: {rules}.`.replace(
+            `Decide if that file should be merged into the main branch.  write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines. The rules are: {rules}. No Code Block.`.replace(
               "{rules}",
               config["ai-review"]["rules"],
             ),
@@ -538,11 +538,13 @@ url: "${ctx.payload.repository.html_url}"`;
         chatCompletion.choices[0].message.content,
         "rip tokens used on this commit message",
       );
+      const out = JSON.parse(chatCompletion.choices[0].message.content)
       ctx.octokit.issues.createComment({
         commit_sha: ctx.payload.after,
         repo: ctx.payload.repository.name,
-        body: chatCompletion.choices[0].message.content,
-        owner: ctx.payload.repository.owner.name,
+        body: out.summary,
+        issue_number: ctx.payload.pull_request.number,
+        owner: ctx.payload.repository.owner.name
       });
     }
   });
