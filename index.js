@@ -80,7 +80,7 @@ module.exports = (app) => {
         const template = await ctx.octokit.rest.repos.getContent({
           owner: ctx.payload.repository.owner.login,
           repo: ctx.payload.repository.name,
-          path: `.github/zeon/${type}-message.md`,
+          path: `.github/zeon/templates/pr/${type}-message.md`,
         });
         let templ = Buffer.from(template.data.content, "base64").toString();
         const Ctx = {
@@ -410,6 +410,40 @@ I require pull request titles to follow the [Conventional Commits specification]
         } catch (e) {
           console.error(e);
           console.log(2, `failed`);
+        }
+      } else if (file.filename.endsWith('.create_tts_file')) {
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        const [fileOutName, ...contentSplits] = Buffer.from(content.data.content, 'base64').toString()
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: `chore(cleanup): Delete ${file.filename} file`,
+          }),
+        );
+        if (!fileOutName) return;
+        if (contentSplits.length <= 0) return;
+        try {
+          const mp3 = await ai_client.audio.speech.create({
+            model: "tts-1",
+            voice: "alloy",
+            input: contentSplits.join(' ').slice(0,4096),
+          });
+          context.octokit.repos.createOrUpdateFileContents(
+            context.repo({
+              path: fileOutName,
+              message: `assets(mp3): Create TTS file`,
+              content: Buffer.from(await mp3.arrayBuffer()).toString('base64'),
+            }),
+          );
+        } catch (e) {
+          console.error(`tts failed`, e)
         }
       }
     });
