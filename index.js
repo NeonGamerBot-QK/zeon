@@ -382,21 +382,23 @@ I require pull request titles to follow the [Conventional Commits specification]
         }
       } else if (file.filename.includes(".create_citation")) {
         // @see https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files
-        const repoCreatedYear = new Date(ctx.payload.repository.created_at).toISOString().split('T')[0]
-const content = await context.octokit.repos.getContent(
-  ctx.repo({
-    path: file.filename,
-    ref: branch,
-  }),
-);
-ctx.octokit.repos.deleteFile(
-  ctx.repo({
-    sha: content.data.sha,
-    path: file.filename,
-    branch,
-    message: `chore(cleanup): Delete ${file.filename} file`,
-  }),
-);
+        const repoCreatedYear = new Date(ctx.payload.repository.created_at)
+          .toISOString()
+          .split("T")[0];
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: `chore(cleanup): Delete ${file.filename} file`,
+          }),
+        );
         try {
           const fileData = `cff-version: 1.2.0
           message: "If you use this software, please cite it as below."
@@ -408,20 +410,18 @@ ctx.octokit.repos.deleteFile(
           version: 0.0.0
           doi: 0.0.0/${ctx.payload.repository.name}.${ctx.payload.repository.owner.login}
           date-released: ${repoCreatedYear}
-          url: "${ctx.payload.repository.html_url}"`
-  context.octokit.repos.createOrUpdateFileContents(
-    context.repo({
-      path: `CITATION.cff`,
-      message: `ci(git): Create citations`,
-      content: Buffer.from(
-       fileData,
-      ).toString("base64"),
-    }),
-  );
-} catch (e) {
-  console.error(e);
-  console.log(6, `failed`);
-}
+          url: "${ctx.payload.repository.html_url}"`;
+          context.octokit.repos.createOrUpdateFileContents(
+            context.repo({
+              path: `CITATION.cff`,
+              message: `ci(git): Create citations`,
+              content: Buffer.from(fileData).toString("base64"),
+            }),
+          );
+        } catch (e) {
+          console.error(e);
+          console.log(6, `failed`);
+        }
       } else if (file.filename.includes(".create_funding")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
@@ -461,7 +461,9 @@ ctx.octokit.repos.deleteFile(
         const [fileOutName, ...contentSplits] = Buffer.from(
           content.data.content,
           "base64",
-        ).toString().split(' ');
+        )
+          .toString()
+          .split(" ");
         ctx.octokit.repos.deleteFile(
           ctx.repo({
             sha: content.data.sha,
