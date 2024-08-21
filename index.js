@@ -581,10 +581,10 @@ url: "${ctx.payload.repository.html_url}"`;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
     const push = ctx.payload;
 
-    const config = await context.config("zeon/commit.yml") || {};
-    console.log(config)
+    const config = (await context.config("zeon/commit.yml")) || {};
+    console.log(config);
     if (config.aicomment) {
-      console.log(`sad`)
+      console.log(`sad`);
     }
     if (config.autocodeowner) {
       const fcs = push.commits;
