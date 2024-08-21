@@ -576,19 +576,18 @@ url: "${ctx.payload.repository.html_url}"`;
       }
     }
   });
-  app.on(['push'], async (ctx) => {
+  app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
     const push = ctx.payload;
 
     const config = context.config("zeon/commit.yml") || {};
     if (config.aicomment) {
-      
     }
     if (config.autocodeowner) {
-      const fcs = push.commits
+      const fcs = push.commits;
       console.log(`#codeowners`);
-      fcs.forEach(async fc => {
+      fcs.forEach(async (fc) => {
         const compare = await ctx.octokit.repos.compareCommits(
           context.repo({
             base: push.before,
@@ -634,10 +633,9 @@ url: "${ctx.payload.repository.html_url}"`;
             ).toString("base64"),
           }),
         );
-      })
+      });
     }
-    
-  })
+  });
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
