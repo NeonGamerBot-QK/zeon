@@ -885,6 +885,8 @@ url: "${ctx.payload.repository.html_url}"`;
     "./DupIssue",
     "./Linter",
     "./zeon_canvas",
+    "./AiCodeReview/index.js",
+    "./DCO",
     // "./SimilarCode",
     // './autoApproval/index',
     "./run_automations_for_vencord_css.js",
@@ -911,3 +913,4 @@ url: "${ctx.payload.repository.html_url}"`;
   // To get your app running against GitHub, see:
   // https://probot.github.io/docs/development/
 };
+// todo add https://github.com/wip/app/tree/master/ https://github.com/behaviorbot/request-info/tree/master

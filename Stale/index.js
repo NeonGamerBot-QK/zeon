@@ -43,12 +43,13 @@ module.exports = (app) => {
     
       async function forRepository (context) {
         let config = {
-            daysUntilStale: 60, // 7 days
+            daysUntilStale: 7, // 7 days
             daysUntilClose: 7, // 7 days
             markComment: ` This issue has been automatically marked as stale because it has not had
             recent activity. It will be closed if no further activity occurs. Thank you
             for your contributions.`,
-            staleLabel: 'stale',
+          staleLabel: 'stale',
+            preform: true
         }
     
         if (!config) {
