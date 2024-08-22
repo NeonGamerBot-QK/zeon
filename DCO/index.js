@@ -1,241 +1,241 @@
 const validator = require("email-validator");
-const getDCOStatus =async function (
-    commits,
-    isRequiredFor,
-    prURL,
-    allowRemediationCommits
-  ) {
-    const failed = [];
-  
-    for (const { commit, author, parents, sha } of commits) {
-      const isMerge = parents && parents.length > 1;
-  
-      const signoffRequired = !author || (await isRequiredFor(author.login));
-      if (isMerge || (!signoffRequired && commit.verification.verified)) {
-        continue;
-      } else if (author && author.type === "Bot") {
-        continue;
-      }
-  
-      const commitInfo = {
-        sha,
-        url: `${prURL}/commits/${sha}`,
-        author: commit.author.name,
-        email: commit.author.email,
-        committer: commit.committer.name,
-        message: "",
-      };
-  
-      const signoffs = getSignoffs(commit, sha, commits, allowRemediationCommits);
-  
-      if (signoffs.length === 0) {
-        // no signoffs found
-        if (signoffRequired) {
-          commitInfo.message = "The sign-off is missing.";
-          failed.push(commitInfo);
-        } else {
-          commitInfo.message = "Commit by organization member is not verified.";
-          failed.push(commitInfo);
-        }
-  
-        continue;
-      }
-  
-      // Check to be sure the author and committer emails are actual valid email addresses
-      const email = commit.author.email || commit.committer.email;
-      if (!validator.validate(email)) {
-        commitInfo.message = `${email} is not a valid email address.`;
-        failed.push(commitInfo);
-        continue;
-      }
-  
-      const authors = [
-        commit.author.name.toLowerCase(),
-        commit.committer.name.toLowerCase(),
-      ];
-      const emails = [
-        commit.author.email.toLowerCase(),
-        commit.committer.email.toLowerCase(),
-      ];
-      if (signoffs.length === 1) {
-        // commit contains one signoff
-        const sig = signoffs[0];
-        // if the signoff is an explicit match or an individual remediation, check if signoff name and email match the commit
-        // if the signoff is from a third-party remediation and passed the tests in getSignoffs, it is valid
-        if (
-          ["explicit", "individualRemediation"].includes(sig.type) &&
-          (!authors.includes(sig.name.toLowerCase()) ||
-            !emails.includes(sig.email.toLowerCase()))
-        ) {
-          commitInfo.message = `Expected "${commit.author.name} <${commit.author.email}>", but got "${sig.name} <${sig.email}>".`;
-          failed.push(commitInfo);
-        }
-      } else {
-        // commit contains multiple signoffs
-        // first, find explicit signoffs which match the author exactly
-        const valid = signoffs.filter(
-          (signoff) =>
-            authors.includes(signoff.name.toLowerCase()) &&
-            emails.includes(signoff.email.toLowerCase()) &&
-            signoff.type === "explicit"
-        );
-        // next, find individual remediations which match the author exactly
-        const validIndividualRemediation = signoffs.filter(
-          (signoff) =>
-            authors.includes(signoff.name.toLowerCase()) &&
-            emails.includes(signoff.email.toLowerCase()) &&
-            signoff.type === "individualRemediation"
-        );
-        // if the signoff is from a third-party remediation and passed the tests in getSignoffs, it is valid
-        const validThirdPartyRemediation = signoffs.filter(
-          (signoff) => signoff.type === "thirdPartyRemediation"
-        );
-  
-        // fail if no signoffs of any type match author's name and email
-        if (
-          valid.length === 0 &&
-          validIndividualRemediation.length === 0 &&
-          validThirdPartyRemediation.length === 0
-        ) {
-          const got = signoffs
-            .map((sig) => `"${sig.name} <${sig.email}>"`)
-            .join(", ");
-          commitInfo.message = `Can not find "${commit.author.name} <${commit.author.email}>", in [${got}].`;
-          failed.push(commitInfo);
-        }
-      } // end if
-    } // end for
-  
-    return failed.sort((a, b) => a.author.localeCompare(b.author));
-  };
-  
-  function getSignoffs(
-    comparisonCommit,
-    comparisonSha,
-    allCommits,
-    allowRemediationCommits
-  ) {
-    const regex = /^Signed-off-by: (.*) <(.*)>\s*$/gim;
-    const matches = [];
-    let match;
-    while ((match = regex.exec(comparisonCommit.message)) !== null) {
-      matches.push({
-        name: match[1],
-        email: match[2],
-        type: "explicit",
-      });
+const getDCOStatus = async function (
+  commits,
+  isRequiredFor,
+  prURL,
+  allowRemediationCommits,
+) {
+  const failed = [];
+
+  for (const { commit, author, parents, sha } of commits) {
+    const isMerge = parents && parents.length > 1;
+
+    const signoffRequired = !author || (await isRequiredFor(author.login));
+    if (isMerge || (!signoffRequired && commit.verification.verified)) {
+      continue;
+    } else if (author && author.type === "Bot") {
+      continue;
     }
-  
-    if (allowRemediationCommits.individual) {
-      // if individual remediation commits are allowed, look for one in the PR with a matching sha
-  
-      for (const { commit } of allCommits) {
-        let remediationMatch;
-  
-        // if individual commits are allowed, look for one in the PR with a matching sha
-        const remediationRegexIndividual =
-          /^I, (.*) <(.*)>, hereby add my Signed-off-by to this commit: (.*)\s*$/gim;
-        while (
-          (remediationMatch = remediationRegexIndividual.exec(commit.message)) !==
-          null
+
+    const commitInfo = {
+      sha,
+      url: `${prURL}/commits/${sha}`,
+      author: commit.author.name,
+      email: commit.author.email,
+      committer: commit.committer.name,
+      message: "",
+    };
+
+    const signoffs = getSignoffs(commit, sha, commits, allowRemediationCommits);
+
+    if (signoffs.length === 0) {
+      // no signoffs found
+      if (signoffRequired) {
+        commitInfo.message = "The sign-off is missing.";
+        failed.push(commitInfo);
+      } else {
+        commitInfo.message = "Commit by organization member is not verified.";
+        failed.push(commitInfo);
+      }
+
+      continue;
+    }
+
+    // Check to be sure the author and committer emails are actual valid email addresses
+    const email = commit.author.email || commit.committer.email;
+    if (!validator.validate(email)) {
+      commitInfo.message = `${email} is not a valid email address.`;
+      failed.push(commitInfo);
+      continue;
+    }
+
+    const authors = [
+      commit.author.name.toLowerCase(),
+      commit.committer.name.toLowerCase(),
+    ];
+    const emails = [
+      commit.author.email.toLowerCase(),
+      commit.committer.email.toLowerCase(),
+    ];
+    if (signoffs.length === 1) {
+      // commit contains one signoff
+      const sig = signoffs[0];
+      // if the signoff is an explicit match or an individual remediation, check if signoff name and email match the commit
+      // if the signoff is from a third-party remediation and passed the tests in getSignoffs, it is valid
+      if (
+        ["explicit", "individualRemediation"].includes(sig.type) &&
+        (!authors.includes(sig.name.toLowerCase()) ||
+          !emails.includes(sig.email.toLowerCase()))
+      ) {
+        commitInfo.message = `Expected "${commit.author.name} <${commit.author.email}>", but got "${sig.name} <${sig.email}>".`;
+        failed.push(commitInfo);
+      }
+    } else {
+      // commit contains multiple signoffs
+      // first, find explicit signoffs which match the author exactly
+      const valid = signoffs.filter(
+        (signoff) =>
+          authors.includes(signoff.name.toLowerCase()) &&
+          emails.includes(signoff.email.toLowerCase()) &&
+          signoff.type === "explicit",
+      );
+      // next, find individual remediations which match the author exactly
+      const validIndividualRemediation = signoffs.filter(
+        (signoff) =>
+          authors.includes(signoff.name.toLowerCase()) &&
+          emails.includes(signoff.email.toLowerCase()) &&
+          signoff.type === "individualRemediation",
+      );
+      // if the signoff is from a third-party remediation and passed the tests in getSignoffs, it is valid
+      const validThirdPartyRemediation = signoffs.filter(
+        (signoff) => signoff.type === "thirdPartyRemediation",
+      );
+
+      // fail if no signoffs of any type match author's name and email
+      if (
+        valid.length === 0 &&
+        validIndividualRemediation.length === 0 &&
+        validThirdPartyRemediation.length === 0
+      ) {
+        const got = signoffs
+          .map((sig) => `"${sig.name} <${sig.email}>"`)
+          .join(", ");
+        commitInfo.message = `Can not find "${commit.author.name} <${commit.author.email}>", in [${got}].`;
+        failed.push(commitInfo);
+      }
+    } // end if
+  } // end for
+
+  return failed.sort((a, b) => a.author.localeCompare(b.author));
+};
+
+function getSignoffs(
+  comparisonCommit,
+  comparisonSha,
+  allCommits,
+  allowRemediationCommits,
+) {
+  const regex = /^Signed-off-by: (.*) <(.*)>\s*$/gim;
+  const matches = [];
+  let match;
+  while ((match = regex.exec(comparisonCommit.message)) !== null) {
+    matches.push({
+      name: match[1],
+      email: match[2],
+      type: "explicit",
+    });
+  }
+
+  if (allowRemediationCommits.individual) {
+    // if individual remediation commits are allowed, look for one in the PR with a matching sha
+
+    for (const { commit } of allCommits) {
+      let remediationMatch;
+
+      // if individual commits are allowed, look for one in the PR with a matching sha
+      const remediationRegexIndividual =
+        /^I, (.*) <(.*)>, hereby add my Signed-off-by to this commit: (.*)\s*$/gim;
+      while (
+        (remediationMatch = remediationRegexIndividual.exec(commit.message)) !==
+        null
+      ) {
+        // make sure the commit author matches the author being Signed-off-by for
+        if (
+          remediationMatch[3] === comparisonSha &&
+          comparisonCommit.author.name.toLowerCase() ===
+            commit.author.name.toLowerCase() &&
+          comparisonCommit.author.name.toLowerCase() ===
+            remediationMatch[1].toLowerCase() &&
+          comparisonCommit.author.email.toLowerCase() ===
+            commit.author.email.toLowerCase() &&
+          comparisonCommit.author.email.toLowerCase() ===
+            remediationMatch[2].toLowerCase()
         ) {
-          // make sure the commit author matches the author being Signed-off-by for
+          matches.push({
+            name: remediationMatch[1],
+            email: remediationMatch[2],
+            type: "individualRemediation",
+          });
+        } // end if
+      } // end while
+
+      if (allowRemediationCommits.thirdParty) {
+        // if 3rd party commits are allowed, look for one in the PR with a matching sha
+        const remediationRegexThirdParty =
+          /^On behalf of (.*) <(.*)>, I, (.*) <(.*)>, hereby add my Signed-off-by to this commit: (.*)\s*$/gim;
+        while (
+          (remediationMatch = remediationRegexThirdParty.exec(
+            commit.message,
+          )) !== null
+        ) {
+          // make sure the commit author or committer matches the person claiming to do the third-party remediation, and that the signoff matches the original failing commit
+
           if (
-            remediationMatch[3] === comparisonSha &&
-            comparisonCommit.author.name.toLowerCase() ===
-              commit.author.name.toLowerCase() &&
+            remediationMatch[5] === comparisonSha &&
             comparisonCommit.author.name.toLowerCase() ===
               remediationMatch[1].toLowerCase() &&
             comparisonCommit.author.email.toLowerCase() ===
-              commit.author.email.toLowerCase() &&
-            comparisonCommit.author.email.toLowerCase() ===
-              remediationMatch[2].toLowerCase()
+              remediationMatch[2].toLowerCase() &&
+            ((commit.author.name.toLowerCase() ===
+              remediationMatch[3].toLowerCase() &&
+              commit.author.email.toLowerCase() ===
+                remediationMatch[4].toLowerCase()) ||
+              (commit.committer.name.toLowerCase() ===
+                remediationMatch[3].toLowerCase() &&
+                commit.committer.email.toLowerCase() ===
+                  remediationMatch[4].toLowerCase()))
           ) {
             matches.push({
               name: remediationMatch[1],
               email: remediationMatch[2],
-              type: "individualRemediation",
+              type: "thirdPartyRemediation",
             });
           } // end if
         } // end while
-  
-        if (allowRemediationCommits.thirdParty) {
-          // if 3rd party commits are allowed, look for one in the PR with a matching sha
-          const remediationRegexThirdParty =
-            /^On behalf of (.*) <(.*)>, I, (.*) <(.*)>, hereby add my Signed-off-by to this commit: (.*)\s*$/gim;
-          while (
-            (remediationMatch = remediationRegexThirdParty.exec(
-              commit.message
-            )) !== null
-          ) {
-            // make sure the commit author or committer matches the person claiming to do the third-party remediation, and that the signoff matches the original failing commit
-  
-            if (
-              remediationMatch[5] === comparisonSha &&
-              comparisonCommit.author.name.toLowerCase() ===
-                remediationMatch[1].toLowerCase() &&
-              comparisonCommit.author.email.toLowerCase() ===
-                remediationMatch[2].toLowerCase() &&
-              ((commit.author.name.toLowerCase() ===
-                remediationMatch[3].toLowerCase() &&
-                commit.author.email.toLowerCase() ===
-                  remediationMatch[4].toLowerCase()) ||
-                (commit.committer.name.toLowerCase() ===
-                  remediationMatch[3].toLowerCase() &&
-                  commit.committer.email.toLowerCase() ===
-                    remediationMatch[4].toLowerCase()))
-            ) {
-              matches.push({
-                name: remediationMatch[1],
-                email: remediationMatch[2],
-                type: "thirdPartyRemediation",
-              });
-            } // end if
-          } // end while
-        } // end if
       } // end if
     } // end if
-  
-    return matches;
-  }
+  } // end if
+
+  return matches;
+}
 const requireMembers = function (requireForMembers, context) {
-    // If members are required to sign-off, then always require sign-off
-    if (requireForMembers) {
-      return async () => true;
-    }
-  
-    // If repository belongs to an organization, check if user is a member
-    if (context.payload.organization) {
-      const members = {};
-  
-      return async (login) => {
-        let member;
-        if (login in members) member = members[login];
-        else {
-          // https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
-          member = await context.octokit.orgs
-            .checkMembershipForUser({
-              org: context.payload.organization.login,
-              username: login,
-            })
-            .catch((err) => {
-              /* istanbul ignore next - unexpected error */
-              if (err.status !== 404) throw err;
-              return false;
-            });
-          members[login] = member;
-        }
-  
-        return !member;
-      };
-    }
-  
-    // If repository does not belong to an organization, check if user is the owner of the repository
-    const owner = context.payload.repository.owner.login;
+  // If members are required to sign-off, then always require sign-off
+  if (requireForMembers) {
+    return async () => true;
+  }
+
+  // If repository belongs to an organization, check if user is a member
+  if (context.payload.organization) {
+    const members = {};
+
     return async (login) => {
-      return login !== owner;
+      let member;
+      if (login in members) member = members[login];
+      else {
+        // https://docs.github.com/en/rest/reference/orgs#check-organization-membership-for-a-user
+        member = await context.octokit.orgs
+          .checkMembershipForUser({
+            org: context.payload.organization.login,
+            username: login,
+          })
+          .catch((err) => {
+            /* istanbul ignore next - unexpected error */
+            if (err.status !== 404) throw err;
+            return false;
+          });
+        members[login] = member;
+      }
+
+      return !member;
     };
+  }
+
+  // If repository does not belong to an organization, check if user is the owner of the repository
+  const owner = context.payload.repository.owner.login;
+  return async (login) => {
+    return login !== owner;
   };
+};
 
 /**
  * @param {import('probot').Probot} app
@@ -247,7 +247,7 @@ module.exports = (app) => {
       "pull_request.synchronize",
       "check_run.rerequested",
     ],
-    check
+    check,
   );
 
   async function check(context) {
@@ -261,16 +261,16 @@ module.exports = (app) => {
     //     individual: false,
     //     thirdParty: false,
     //   },
-      // });
-      const config = {
-        require: {
-                members: true,
-              },
-              allowRemediationCommits: {
-                individual: false,
-                thirdParty: false,
-              },
-      }
+    // });
+    const config = {
+      require: {
+        members: true,
+      },
+      allowRemediationCommits: {
+        individual: false,
+        thirdParty: false,
+      },
+    };
     const requireForMembers = config.require.members;
     const allowRemediationCommits = config.allowRemediationCommits;
 
@@ -280,7 +280,7 @@ module.exports = (app) => {
       context.repo({
         base: pr.base.sha,
         head: pr.head.sha,
-      })
+      }),
     );
 
     const commits = compare.data.commits;
@@ -288,7 +288,7 @@ module.exports = (app) => {
       commits,
       requireMembers(requireForMembers, context),
       context.payload.pull_request.html_url,
-      allowRemediationCommits
+      allowRemediationCommits,
     );
 
     if (!dcoFailed.length) {
@@ -306,7 +306,7 @@ module.exports = (app) => {
               title: "DCO",
               summary: "All commits are signed off!",
             },
-          })
+          }),
         )
         .catch(function checkFails(error) {
           /* istanbul ignore next - unexpected error */
@@ -329,7 +329,7 @@ module.exports = (app) => {
         summary.push(
           `Commit sha: [${commit.sha.substr(0, 7)}](${commit.url}), Author: ${
             commit.author
-          }, Committer: ${commit.committer}; ${commit.message}`
+          }, Committer: ${commit.committer}; ${commit.message}`,
         );
       });
       summary = summary.join("\n");
@@ -359,7 +359,7 @@ module.exports = (app) => {
                 identifier: "override",
               },
             ],
-          })
+          }),
         )
         .catch(function checkFails(error) {
           /* istanbul ignore next - unexpected error */
@@ -369,7 +369,7 @@ module.exports = (app) => {
           // create status
           const description = dcoFailed[dcoFailed.length - 1].message.substring(
             0,
-            140
+            140,
           );
           const params = {
             sha: pr.head.sha,
@@ -401,7 +401,7 @@ module.exports = (app) => {
           title: "DCO",
           summary: "Commit sign-off was manually approved.",
         },
-      })
+      }),
     );
   }
 };
