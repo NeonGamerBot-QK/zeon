@@ -139,7 +139,7 @@ I require pull request titles to follow the [Conventional Commits specification]
    - revert: Reverts a previous commit
     `,
           });
-        } catch (e) { }
+        } catch (e) {}
       }, 250);
     }
   });
@@ -574,7 +574,7 @@ url: "${ctx.payload.repository.html_url}"`;
             break;
         }
       }
-      // examples: (not public) 
+      // examples: (not public)
       // approved: https://github.com/NeonGamerBot-QK/test-d/pull/25
       // declined: https://github.com/NeonGamerBot-QK/test-d/pull/26
     }
@@ -591,7 +591,7 @@ url: "${ctx.payload.repository.html_url}"`;
     }
     if (config.conventionalcommits) {
       const fcs = push.commits;
-      const timeStart = new Date()
+      const timeStart = new Date();
       try {
         const { parser } = require("@conventional-commits/parser");
 
@@ -600,39 +600,36 @@ url: "${ctx.payload.repository.html_url}"`;
           (e) => e.type == "type",
         ).value;
         const scope = data.children[0].children.find((e) => e.type == "scope");
-        await context.octokit.checks
-          .create(
-            context.repo({
-              name: "Conventional Commits",
-              // head_branch: context.payload.head_commit.ref,
-              head_sha: push.head_commit.id,
-              status: "completed",
-              // head_sha: context.payload,
-              started_at: timeStart,
-              conclusion: "success",
-              completed_at: new Date(),
-              // output: {
-              //   title: "CC",
-              //   summary: "All commits are in correct formating.",
-              // },
-            }),
-          )
-
+        await context.octokit.checks.create(
+          context.repo({
+            name: "Conventional Commits",
+            // head_branch: context.payload.head_commit.ref,
+            head_sha: push.head_commit.id,
+            status: "completed",
+            // head_sha: context.payload,
+            started_at: timeStart,
+            conclusion: "success",
+            completed_at: new Date(),
+            // output: {
+            //   title: "CC",
+            //   summary: "All commits are in correct formating.",
+            // },
+          }),
+        );
       } catch (e) {
-        console.error('cry', e)
+        console.error("cry", e);
 
-        await context.octokit.checks
-          .create(
-            context.repo({
-              name: "Conventional Commits",
-              head_sha: push.head_commit.id,
-              status: "completed",
-              started_at: timeStart,
-              conclusion: "action_required",
-              completed_at: new Date(),
-              output: {
-                title: "CC",
-                summary: `## Hey there and thank you for opening this pull request! 👋🏼
+        await context.octokit.checks.create(
+          context.repo({
+            name: "Conventional Commits",
+            head_sha: push.head_commit.id,
+            status: "completed",
+            started_at: timeStart,
+            conclusion: "action_required",
+            completed_at: new Date(),
+            output: {
+              title: "CC",
+              summary: `## Hey there and thank you for opening this pull request! 👋🏼
 I require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted as  without it being in that order i can read your PR correctly.
 
   Available types:
@@ -648,16 +645,16 @@ I require pull request titles to follow the [Conventional Commits specification]
    - chore: Other changes that don't modify src or test files
    - revert: Reverts a previous commit
    `,
+            },
+            actions: [
+              {
+                label: "Ignore Conv Commits",
+                description: "would set status to passing",
+                identifier: "override",
               },
-              actions: [
-                {
-                  label: "Ignore Conv Commits",
-                  description: "would set status to passing",
-                  identifier: "override",
-                },
-              ],
-            }),
-          )
+            ],
+          }),
+        );
       }
     }
     if (config.autocodeowner) {
@@ -684,7 +681,7 @@ I require pull request titles to follow the [Conventional Commits specification]
               ).toString("base64"),
             }),
           );
-        } catch (e) { }
+        } catch (e) {}
         // line above is incase it fails because the file exists OR codeowners says no
         const currentFileContent = await ctx.octokit.repos
           .getContent(
@@ -707,7 +704,15 @@ I require pull request titles to follow the [Conventional Commits specification]
               message: `ci(git): update codeowners`,
               sha: currentFileContent.data.sha,
               content: Buffer.from(
-                [...new Map((currentFileContent.data.content + "\n" + appendToCodeOwners).split('\n'))].join('\n'),
+                [
+                  ...new Map(
+                    (
+                      currentFileContent.data.content +
+                      "\n" +
+                      appendToCodeOwners
+                    ).split("\n"),
+                  ),
+                ].join("\n"),
               ).toString("base64"),
             }),
           );
@@ -770,7 +775,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             ).toString("base64"),
           }),
         );
-      } catch (e) { }
+      } catch (e) {}
       // line above is incase it fails because the file exists OR codeowners says no
       const currentFileContent = await ctx.octokit.repos
         .getContent(
