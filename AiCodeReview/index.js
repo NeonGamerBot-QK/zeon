@@ -11,7 +11,7 @@ const MAX_PATCH_COUNT = process.env.MAX_PATCH_LENGTH
  * @param {Probot} app
  */
 module.exports = async (app) => {
-  const { ChatGPTAPI } = await import('chatgpt')
+  const { ChatGPTAPI } = await import("chatgpt");
   class Chat {
     constructor(apikey) {
       this.chatAPI = new ChatGPTAPI({
@@ -95,9 +95,9 @@ module.exports = async (app) => {
     ["pull_request.opened", "pull_request.synchronize"],
     async (context) => {
       const repo = context.repo();
-      const config = await context.config("zeon/pr.yml")
-      if (!config['ai-review-code']) {
-        console.log(`Not enabled`)
+      const config = await context.config("zeon/pr.yml");
+      if (!config["ai-review-code"]) {
+        console.log(`Not enabled`);
         return;
       }
       const chat = await loadChat(context);
