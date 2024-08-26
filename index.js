@@ -139,7 +139,7 @@ I require pull request titles to follow the [Conventional Commits specification]
    - revert: Reverts a previous commit
     `,
           });
-        } catch (e) {}
+        } catch (e) { }
       }, 250);
     }
   });
@@ -574,6 +574,9 @@ url: "${ctx.payload.repository.html_url}"`;
             break;
         }
       }
+      // examples: (not public) 
+      // approved: https://github.com/NeonGamerBot-QK/test-d/pull/25
+      // declined: https://github.com/NeonGamerBot-QK/test-d/pull/26
     }
   });
   app.on(["push"], async (ctx) => {
@@ -582,12 +585,84 @@ url: "${ctx.payload.repository.html_url}"`;
     const push = ctx.payload;
     const branch = push.ref.replace("refs/heads/", "");
     const config = (await context.config("zeon/commit.yml")) || {};
-    console.log(config);
+    console.log(config, `COMMIT_CONGIF_CONFIG`);
     if (config.aicomment) {
       console.log(`sad`);
     }
+    if (config.conventionalcommits) {
+      const fcs = push.commits;
+      const timeStart = new Date()
+      try {
+        const { parser } = require("@conventional-commits/parser");
+
+        const data = parser(ctx.payload.pull_request.title);
+        const type = data.children[0].children.find(
+          (e) => e.type == "type",
+        ).value;
+        const scope = data.children[0].children.find((e) => e.type == "scope");
+        await context.octokit.checks
+          .create(
+            context.repo({
+              name: "Conventional Commits",
+              // head_branch: context.payload.head_commit.ref,
+              head_sha: push.head_commit.id,
+              status: "completed",
+              // head_sha: context.payload,
+              started_at: timeStart,
+              conclusion: "success",
+              completed_at: new Date(),
+              // output: {
+              //   title: "CC",
+              //   summary: "All commits are in correct formating.",
+              // },
+            }),
+          )
+
+      } catch (e) {
+        console.error('cry', e)
+
+        await context.octokit.checks
+          .create(
+            context.repo({
+              name: "Conventional Commits",
+              head_sha: push.head_commit.id,
+              status: "completed",
+              started_at: timeStart,
+              conclusion: "action_required",
+              completed_at: new Date(),
+              output: {
+                title: "CC",
+                summary: `## Hey there and thank you for opening this pull request! 👋🏼
+I require pull request titles to follow the [Conventional Commits specification](https://www.conventionalcommits.org/en/v1.0.0/) and it looks like your proposed title needs to be adjusted as  without it being in that order i can read your PR correctly.
+
+  Available types:
+   - feat: A new feature
+   - fix: A bug fix
+   - docs: Documentation only changes
+   - style: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+   - refactor: A code change that neither fixes a bug nor adds a feature
+   - perf: A code change that improves performance
+   - test: Adding missing tests or correcting existing tests
+   - build: Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+   - ci: Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
+   - chore: Other changes that don't modify src or test files
+   - revert: Reverts a previous commit
+   `,
+              },
+              actions: [
+                {
+                  label: "Ignore Conv Commits",
+                  description: "would set status to passing",
+                  identifier: "override",
+                },
+              ],
+            }),
+          )
+      }
+    }
     if (config.autocodeowner) {
       const fcs = push.commits;
+
       console.log(`#codeowners`);
       fcs.forEach(async (fc) => {
         const compare = await ctx.octokit.repos.compareCommits(
@@ -609,7 +684,7 @@ url: "${ctx.payload.repository.html_url}"`;
               ).toString("base64"),
             }),
           );
-        } catch (e) {}
+        } catch (e) { }
         // line above is incase it fails because the file exists OR codeowners says no
         const currentFileContent = await ctx.octokit.repos
           .getContent(
@@ -625,16 +700,20 @@ url: "${ctx.payload.repository.html_url}"`;
         let appendToCodeOwners = filesMatched
           .map((f) => `${f.filename} @${ctx.payload.pusher.name}`)
           .join("\n");
-        await ctx.octokit.repos.createOrUpdateFileContents(
-          ctx.repo({
-            path: ".github/CODEOWNERS",
-            message: `ci(git): update codeowners`,
-            sha: currentFileContent.data.sha,
-            content: Buffer.from(
-              currentFileContent.data.content + "\n" + appendToCodeOwners,
-            ).toString("base64"),
-          }),
-        );
+        try {
+          await ctx.octokit.repos.createOrUpdateFileContents(
+            ctx.repo({
+              path: ".github/CODEOWNERS",
+              message: `ci(git): update codeowners`,
+              sha: currentFileContent.data.sha,
+              content: Buffer.from(
+                [...new Map((currentFileContent.data.content + "\n" + appendToCodeOwners).split('\n'))].join('\n'),
+              ).toString("base64"),
+            }),
+          );
+        } catch (e) {
+          // can fail when, updating its own codeowners file.
+        }
       });
     }
   });
@@ -691,7 +770,7 @@ url: "${ctx.payload.repository.html_url}"`;
             ).toString("base64"),
           }),
         );
-      } catch (e) {}
+      } catch (e) { }
       // line above is incase it fails because the file exists OR codeowners says no
       const currentFileContent = await ctx.octokit.repos
         .getContent(

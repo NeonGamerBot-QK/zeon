@@ -1,49 +1,5 @@
 // const { Context, Probot } = require('probot');
-export class Chat {
-  constructor(apikey) {
-    this.chatAPI = new ChatGPTAPI({
-      apiKey: apikey,
-      apiBaseUrl:
-        process.env.OPENAI_API_ENDPOINT || "https://api.openai.com/v1",
-      completionParams: {
-        model: process.env.MODEL || "gpt-3.5-turbo",
-        temperature: +(process.env.temperature || 0) || 1,
-        top_p: +(process.env.top_p || 0) || 1,
-        max_tokens: process.env.max_tokens
-          ? +process.env.max_tokens
-          : undefined,
-      },
-    });
-  }
 
-  generatePrompt = (patch) => {
-    const answerLanguage = process.env.LANGUAGE
-      ? `Answer me in ${process.env.LANGUAGE},`
-      : "";
-
-    const prompt =
-      process.env.PROMPT ||
-      "Below is a code patch, please help me do a brief code review on it. Any bug risks and/or improvement suggestions are welcome:";
-
-    return `${prompt}, ${answerLanguage}:
-      ${patch}
-      `;
-  };
-
-  codeReview = async (patch) => {
-    if (!patch) {
-      return "";
-    }
-
-    console.time("code-review cost");
-    const prompt = this.generatePrompt(patch);
-
-    const res = await this.chatAPI.sendMessage(prompt);
-
-    console.timeEnd("code-review cost");
-    return res.text;
-  };
-}
 // import { Chat } from './chat.js';
 
 const OPENAI_API_KEY = "OPENAI_API_KEY";
@@ -54,7 +10,54 @@ const MAX_PATCH_COUNT = process.env.MAX_PATCH_LENGTH
  *
  * @param {Probot} app
  */
-export const robot = (app) => {
+module.exports = async (app) => {
+  const { ChatGPTAPI } = await import('chatgpt')
+  class Chat {
+    constructor(apikey) {
+      this.chatAPI = new ChatGPTAPI({
+        apiKey: apikey,
+        //      apiBaseUrl:
+        //      process.env.OPENAI_API_ENDPOINT || "https://api.openai.com/v1",
+        completionParams: {
+          model: process.env.MODEL || "gpt-3.5-turbo",
+          temperature: +(process.env.temperature || 0) || 1,
+          top_p: +(process.env.top_p || 0) || 1,
+          max_tokens: process.env.max_tokens
+            ? +process.env.max_tokens
+            : undefined,
+        },
+      });
+    }
+
+    generatePrompt = (patch) => {
+      const answerLanguage = process.env.LANGUAGE
+        ? `Answer me in ${process.env.LANGUAGE},`
+        : "";
+
+      const prompt =
+        process.env.PROMPT ||
+        "Below is a code patch, please help me do a brief code review on it. Any bug risks and/or improvement suggestions are welcome:";
+
+      return `${prompt}, ${answerLanguage}:
+      ${patch}
+      `;
+    };
+
+    codeReview = async (patch) => {
+      if (!patch) {
+        return "";
+      }
+
+      console.time("code-review tcost");
+      const prompt = this.generatePrompt(patch);
+
+      const res = await this.chatAPI.sendMessage(prompt);
+
+      console.timeEnd("code-review cost");
+      return res.text;
+    };
+  }
+
   const loadChat = async (context) => {
     if (process.env.OPENAI_API_KEY) {
       return new Chat(process.env.OPENAI_API_KEY);
@@ -92,6 +95,11 @@ export const robot = (app) => {
     ["pull_request.opened", "pull_request.synchronize"],
     async (context) => {
       const repo = context.repo();
+      const config = await context.config("zeon/pr.yml")
+      if (!config['ai-review-code']) {
+        console.log(`Not enabled`)
+        return;
+      }
       const chat = await loadChat(context);
 
       if (!chat) {
