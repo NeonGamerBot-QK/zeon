@@ -75,7 +75,7 @@ module.exports = (robot) => {
           await prettier
             .format(text, linterItems)
             .then((result) => {
-              if (result) {
+              if (result && result.length > 1) {
                 // Checks that we have a fixed version and the file isn't part of the exclude list
                 //   context.octokit.repos.createOrUpdateFileContents()
                 context.octokit.repos.createOrUpdateFileContents(
