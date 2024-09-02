@@ -81,7 +81,7 @@ module.exports = (robot) => {
                 context.octokit.repos.createOrUpdateFileContents(
                   context.repo({
                     path: file.filename,
-                    message: `enhancement(lint): Fix lint errors for ${file.filename}\n\nCo-authored-by: ${context.payload.pusher.name} <${context.payload.pusher.email}>`,
+                    message: `enhancement(lint): Fix lint errors for ${file.filename}\n\nCo-authored-by: ${context.payload.pusher.name} <${context.payload.pusher.email}>\nSigned-off-by: zeon-neon[bot] <136533918+zeon-neon[bot]@users.noreply.github.com>`,
                     content: Buffer.from(result).toString("base64"),
                     sha: content.data.sha,
                     branch,
