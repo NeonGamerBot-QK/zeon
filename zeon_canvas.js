@@ -157,6 +157,14 @@ ${previews.map((p) => {
        `
       })
         )
+            if (!e.includes('FAIL')) {
+              await ctx.octokit.rest.pulls.createReview({
+                owner: ctx.payload.repository.owner.login,
+                repo: ctx.payload.repository.name,
+                pull_number: ctx.payload.pull_request.number,
+                event: "APPROVE",
+              });
+}
             fs.rmSync(fileName)
           })
         } catch (e) {
