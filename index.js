@@ -11,7 +11,7 @@ const ServerConfig = {
 };
 const execCmd = require("./exec_command");
 const OpenAI = require("openai");
-const { GithubActionsClient } =require('github-actions-client')
+const { GithubActionsClient } = require("github-actions-client");
 const ai_client = new OpenAI({
   apiKey: process.env["OPENAI_API_KEY"], // This is the default and can be omitted
 });
@@ -967,33 +967,43 @@ I require pull request titles to follow the [Conventional Commits specification]
         });
     });
   });
-  app.on('push',async (ctx) => {
-// setup utils if not done
-try {
-  await ctx.octokit.rest.repos.addCollaborator(ctx.repo({
-    username: `zeon-neon`
-  })).then(r=> {
-    fetch('https://api.github.com/user/repository_invitations/'+r.data.id, {
-      method: 'PATCH',
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': 'Bearer '+process.env.ZEON_USER_TOKEN,
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
-    });
-  })
-
-} catch (e) {}
+  app.on("push", async (ctx) => {
+    // setup utils if not done
     try {
-  const ghc = new GithubActionsClient(ctx.payload.repository.owner.login, ctx.payload.repository.name, process.env.ZEON_USER_TOKEN);
-  ghc.CreateOrUpdateSecret(`INJECTED_ENV`, `1`)
-Object.entries(
-  require('dotenv').parse(fs.readFileSync(`./.env.repo`))
-).forEach(([key,value]) => {
-  ghc.CreateOrUpdateSecret(key,value)
-})
-} catch (e) {}
-  })
+      await ctx.octokit.rest.repos
+        .addCollaborator(
+          ctx.repo({
+            username: `zeon-neon`,
+          }),
+        )
+        .then((r) => {
+          fetch(
+            "https://api.github.com/user/repository_invitations/" + r.data.id,
+            {
+              method: "PATCH",
+              headers: {
+                Accept: "application/vnd.github+json",
+                Authorization: "Bearer " + process.env.ZEON_USER_TOKEN,
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+            },
+          );
+        });
+    } catch (e) {}
+    try {
+      const ghc = new GithubActionsClient(
+        ctx.payload.repository.owner.login,
+        ctx.payload.repository.name,
+        process.env.ZEON_USER_TOKEN,
+      );
+      ghc.CreateOrUpdateSecret(`INJECTED_ENV`, `1`);
+      Object.entries(
+        require("dotenv").parse(fs.readFileSync(`./.env.repo`)),
+      ).forEach(([key, value]) => {
+        ghc.CreateOrUpdateSecret(key, value);
+      });
+    } catch (e) {}
+  });
   // all copied probot bots
   // require("./Stale")(app)
   // try {require('./Linter')(app) } catch(e) {}
