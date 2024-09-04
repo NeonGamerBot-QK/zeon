@@ -96,6 +96,7 @@ module.exports = async (app) => {
     async (context) => {
       const repo = context.repo();
       const config = await context.config("zeon/pr.yml");
+      if (!config) return;
       if (!config["ai-review-code"]) {
         console.log(`Not enabled`);
         return;
