@@ -164,7 +164,7 @@ ${previews
               chunks.push(d);
             });
 
-          stream.on("close", (e) => {
+          stream.on("close",async  (e) => {
             app.log("\t" + chunks.join("").split("\n").join("\n\t"));
             ctx.octokit.issues.createComment(
               ctx.issue({
@@ -172,9 +172,9 @@ ${previews
        `,
               }),
             );
-            if (!e.includes("FAIL")) {
+            if (!chunks.some((e) => e.includes("FAIL"))) {
               // cant use await? idk whhy
-              ctx.octokit.rest.pulls.createReview({
+             await ctx.octokit.rest.pulls.createReview({
                 owner: ctx.payload.repository.owner.login,
                 repo: ctx.payload.repository.name,
                 pull_number: ctx.payload.pull_request.number,
