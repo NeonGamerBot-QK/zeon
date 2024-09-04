@@ -270,7 +270,7 @@ your pr could have been rejected because it did not pass some of these tests, pl
               content: Buffer.from(
                 [
                   ...new Set(
-                    ...(
+                    (
                       currentFileContent.data.content +
                       "\n" +
                       appendToCodeOwners
