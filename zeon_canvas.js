@@ -125,6 +125,7 @@ ${previews.map((p) => {
   `
 }).join('\n')}
 `
+        
         footnotes += `**this pr is affecting only on the canvas part**\n${isUI ? `\n*this file is edited on the web UI*` : ''}`
       }
       ctx.octokit.issues.createComment(
@@ -219,7 +220,44 @@ your pr could have been rejected because it did not pass some of these tests, pl
   ${footnotes ? `# Footnotes\n${footnotes}` : ''}
    `
   })
-    )
+      )
+      if (isMerged) {
+        // add user to codeowners for there block
+        const files = await ctx.octokit.pulls.listFiles(ctx.pullRequest())
+        const appendToCodeOwners = files.data.map((file) => file.filename).map(f => `${f} @${ctx.payload.pull_request.user.login}`).join('\n')
+         // line above is incase it fails because the file exists OR codeowners says no
+         const currentFileContent = await ctx.octokit.repos
+         .getContent(
+           ctx.repo({
+             path: ".github/CODEOWNERS",
+             ref: "main",
+           }),
+         )
+         .then((e) => {
+           e.data.content = Buffer.from(e.data.content, "base64").toString();
+           return e;
+         });
+       try {
+         await ctx.octokit.repos.createOrUpdateFileContents(
+           ctx.repo({
+             path: ".github/CODEOWNERS",
+             message: `ci(git): update codeowners`,
+             sha: currentFileContent.data.sha,
+             content: Buffer.from(
+               [
+                 ...new Set(...
+                 ( currentFileContent.data.content +
+                  "\n" +
+                  appendToCodeOwners).split('\n')
+                )
+               ].join("\n"),
+             ).toString("base64"),
+           }),
+         );
+       } catch (e) {
+         // can fail when, updating its own codeowners file.
+       }
+      }
     }
   })
 }
