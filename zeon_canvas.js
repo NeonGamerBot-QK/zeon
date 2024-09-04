@@ -42,6 +42,7 @@ const createCanva = (func) => {
 
 module.exports = async (app) => {
   app.on(['pull_request.opened', 'pull_request.synchronize'], async (ctx) => {
+    console.log(`#zeoncanvas`)
     const context = ctx
     if (ctx.payload.repository.html_url.includes('zeoncanvas')) {
       const config = {
@@ -159,7 +160,8 @@ ${previews.map((p) => {
       })
         )
             if (!e.includes('FAIL')) {
-              await ctx.octokit.rest.pulls.createReview({
+              // cant use await? idk whhy
+               ctx.octokit.rest.pulls.createReview({
                 owner: ctx.payload.repository.owner.login,
                 repo: ctx.payload.repository.name,
                 pull_number: ctx.payload.pull_request.number,

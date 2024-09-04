@@ -498,6 +498,7 @@ url: "${ctx.payload.repository.html_url}"`;
     const context = ctx;
     const push = ctx.payload;
     const config = await ctx.config("zeon/pr.yml");
+    if (!config) return;
     console.log(config);
     console.log(
       `what to do next... (use payload to get patch, get patch to get tge prompted ans)`,
