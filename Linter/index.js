@@ -3,6 +3,7 @@ const standard = require("standard");
 const prettier = require("prettier");
 const excludedRepos = [
   "https://github.com/NeonGamerBot-QK/catppuccin-userstyles",
+  "https://github.com/NeonGamerBot-QK/Vencord-builds",
 ];
 /**
  * This is the main entrypoint to your Probot app

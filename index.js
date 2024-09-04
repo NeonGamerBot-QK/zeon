@@ -150,7 +150,7 @@ I require pull request titles to follow the [Conventional Commits specification]
     );
   });
   app.on(["pull_request.opened"], async (ctx) => {
-    if (ctx.payload.repository.name == ctx.payload.repository.owner.login) {
+    if (ctx.payload.repository.name == ctx.payload.repository.owner.login ||["https://github.com/NeonGamerBot-QK/Vencord-builds"].some(u => u.includes(ctx.payload.repository.full_name))) {
       await ctx.octokit.issues.createComment({
         owner: ctx.payload.repository.owner.login,
         repo: ctx.payload.repository.name,
