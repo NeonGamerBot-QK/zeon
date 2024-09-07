@@ -496,6 +496,35 @@ url: "${ctx.payload.repository.html_url}"`;
         } catch (e) {
           console.error(`tts failed`, e);
         }
+      } else if (file.filename.endsWith('.zeon.template')) {
+        const realFilename = file.filename.slice(0, file.filename.length - '.zeon.template'.length)
+        const ejsParams = {
+          payload: ctx.payload, 
+          config: {
+            delete_template_file: Math.random()
+          }
+        }
+        const filee = await ctx.octokit.rest.repos.getContent(ctx.repo({
+          path: file.filename
+        })).then(e=>e.data)
+        try {
+          await ctx.octokit.rest.repos.createOrUpdateFileContents(ctx.repo({
+            path: realFilename,
+            message: "[ZEON] Create file",
+            content: Buffer.from(".").toString('base64'),
+          }))
+        } catch (e) {}
+        const out = require('ejs').render(Buffer.from(filee.content,'base64').toString(),ejsParams)
+   try {
+    await ctx.octokit.rest.repos.createOrUpdateFileContents(ctx.repo({
+      path: realFilename,
+      message: `[ZEON] Template file content`,
+      content: Buffer.from(out).toString('base64'),
+      sha: await ctx.octokit.rest.repos.getContent(ctx.repo({ path: realFilename})).then(e=>e.data.sha)
+    }))
+   } catch (e) {
+    console.error(e)
+   }
       }
     });
   });
