@@ -283,7 +283,63 @@ I require pull request titles to follow the [Conventional Commits specification]
     // ctx.isBot
     // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
   });
+app.on(["commit_comment.created"], async ctx => {
+  const context = ctx;
+  if (ctx.payload.sender.login.includes("zeon")) return; // ignore me
 
+  const push = ctx.payload;
+  console.log(push.comment)
+let msgBody = push.comment.body
+if(msgBody.includes('.example_cmd')) {
+  ctx.octokit.repos.createCommitComment({
+    commit_sha: ctx.payload.comment.commit_id,
+    repo: ctx.payload.repository.name,
+    body: `> ${msgBody.split('\n').join("\n> ")}\n\nHello World! (triggered from cmd: \`.example_cmd\`)`,
+    owner: ctx.payload.repository.owner.login,
+  });
+} else if (msgBody.includes('.zeon_ai')) {
+   //todo convert to octokti
+   const messages = [
+    {
+      role: "user",
+      content: await ctx.octokit
+        .request(
+          "GET /repos/{owner}/{repo}/commits/{ref}",
+          ctx.repo({
+            ref: push.comment.commit_id,
+            headers: {
+              "X-GitHub-Api-Version": "2022-11-28",
+              Accept: "application/vnd.github.patch",
+            },
+          }),
+        )
+        .then((e) => e.data),
+    }
+    // ,
+    // {
+    //   role: "user",
+    //   content: `create a commit comment off patch .make it use new lines. You are zeon. Format it in MD . include no other extra commentary. Do not wrap it in a codeblock.`,
+    // },
+  ];
+  // console.log(messages, fc.url + ".patch");
+
+  const chatCompletion = await ai_client.chat.completions.create({
+    messages,
+    model: "gpt-4o",
+  });
+  console.log(
+    chatCompletion.choices[0].message.content,
+    "rip tokens used on this commit message",
+  );
+  ctx.octokit.repos.createCommitComment({
+    commit_sha: ctx.payload.comment.commit_id,
+    repo: ctx.payload.repository.name,
+    body: chatCompletion.choices[0].message.content,
+    owner: ctx.payload.repository.owner.login,
+  });
+
+}
+})
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
