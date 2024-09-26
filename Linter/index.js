@@ -5,6 +5,7 @@ const excludedRepos = [
   "https://github.com/NeonGamerBot-QK/catppuccin-userstyles",
   "https://github.com/NeonGamerBot-QK/Vencord-builds",
   "https://github.com/NeonGamerBot-QK/nest-fork",
+  "https://github.com/NeonGamerBot-QK/myBot",
 ];
 /**
  * This is the main entrypoint to your Probot app
