@@ -14,7 +14,7 @@ const excludedRepos = [
 module.exports = (robot) => {
   robot.on("push", async (context) => {
     if (context.payload.pusher.name.includes("zeon")) return; // ignore my commitss
-    if(context.payload.repository.fork) return;
+    if (context.payload.repository.fork) return;
     if (excludedRepos.includes(context.payload.repository.html_url)) {
       robot.log.info("not running on " + context.payload.repository.html_url);
       return;
