@@ -283,63 +283,62 @@ I require pull request titles to follow the [Conventional Commits specification]
     // ctx.isBot
     // ctx.octokit.actions.createOrUpdateRepoSecret({ owner: ctx.payload.repository.owner, encrypted_value: "", secret_name: "CP_HOST"})
   });
-app.on(["commit_comment.created"], async ctx => {
-  const context = ctx;
-  if (ctx.payload.sender.login.includes("zeon")) return; // ignore me
+  app.on(["commit_comment.created"], async (ctx) => {
+    const context = ctx;
+    if (ctx.payload.sender.login.includes("zeon")) return; // ignore me
 
-  const push = ctx.payload;
-  console.log(push.comment)
-let msgBody = push.comment.body
-if(msgBody.includes('.example_cmd')) {
-  ctx.octokit.repos.createCommitComment({
-    commit_sha: ctx.payload.comment.commit_id,
-    repo: ctx.payload.repository.name,
-    body: `> ${msgBody.split('\n').join("\n> ")}\n\nHello World! (triggered from cmd: \`.example_cmd\`)`,
-    owner: ctx.payload.repository.owner.login,
-  });
-} else if (msgBody.includes('.zeon_ai')) {
-   //todo convert to octokti
-   const messages = [
-    {
-      role: "user",
-      content: await ctx.octokit
-        .request(
-          "GET /repos/{owner}/{repo}/commits/{ref}",
-          ctx.repo({
-            ref: push.comment.commit_id,
-            headers: {
-              "X-GitHub-Api-Version": "2022-11-28",
-              Accept: "application/vnd.github.patch",
-            },
-          }),
-        )
-        .then((e) => e.data),
+    const push = ctx.payload;
+    console.log(push.comment);
+    let msgBody = push.comment.body;
+    if (msgBody.includes(".example_cmd")) {
+      ctx.octokit.repos.createCommitComment({
+        commit_sha: ctx.payload.comment.commit_id,
+        repo: ctx.payload.repository.name,
+        body: `> ${msgBody.split("\n").join("\n> ")}\n\nHello World! (triggered from cmd: \`.example_cmd\`)`,
+        owner: ctx.payload.repository.owner.login,
+      });
+    } else if (msgBody.includes(".zeon_ai")) {
+      //todo convert to octokti
+      const messages = [
+        {
+          role: "user",
+          content: await ctx.octokit
+            .request(
+              "GET /repos/{owner}/{repo}/commits/{ref}",
+              ctx.repo({
+                ref: push.comment.commit_id,
+                headers: {
+                  "X-GitHub-Api-Version": "2022-11-28",
+                  Accept: "application/vnd.github.patch",
+                },
+              }),
+            )
+            .then((e) => e.data),
+        },
+        // ,
+        // {
+        //   role: "user",
+        //   content: `create a commit comment off patch .make it use new lines. You are zeon. Format it in MD . include no other extra commentary. Do not wrap it in a codeblock.`,
+        // },
+      ];
+      // console.log(messages, fc.url + ".patch");
+
+      const chatCompletion = await ai_client.chat.completions.create({
+        messages,
+        model: "gpt-4o",
+      });
+      console.log(
+        chatCompletion.choices[0].message.content,
+        "rip tokens used on this commit message",
+      );
+      ctx.octokit.repos.createCommitComment({
+        commit_sha: ctx.payload.comment.commit_id,
+        repo: ctx.payload.repository.name,
+        body: chatCompletion.choices[0].message.content,
+        owner: ctx.payload.repository.owner.login,
+      });
     }
-    // ,
-    // {
-    //   role: "user",
-    //   content: `create a commit comment off patch .make it use new lines. You are zeon. Format it in MD . include no other extra commentary. Do not wrap it in a codeblock.`,
-    // },
-  ];
-  // console.log(messages, fc.url + ".patch");
-
-  const chatCompletion = await ai_client.chat.completions.create({
-    messages,
-    model: "gpt-4o",
   });
-  console.log(
-    chatCompletion.choices[0].message.content,
-    "rip tokens used on this commit message",
-  );
-  ctx.octokit.repos.createCommitComment({
-    commit_sha: ctx.payload.comment.commit_id,
-    repo: ctx.payload.repository.name,
-    body: chatCompletion.choices[0].message.content,
-    owner: ctx.payload.repository.owner.login,
-  });
-
-}
-})
   app.on(["push"], async (ctx) => {
     const context = ctx;
     if (ctx.payload.pusher.name.includes("zeon")) return; // ignore my commitss
@@ -372,7 +371,7 @@ if(msgBody.includes('.example_cmd')) {
             message: `chore(cleanup): Delete ${file.filename} file`,
           }),
         );
-      }  else if(file.filename.includes('.create_notes_list')) {
+      } else if (file.filename.includes(".create_notes_list")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
             path: file.filename,
@@ -387,7 +386,7 @@ if(msgBody.includes('.example_cmd')) {
             message: `chore(cleanup): Delete ${file.filename} file`,
           }),
         );
-        if(ctx.payload.repository.name !== 'my-notes') {
+        if (ctx.payload.repository.name !== "my-notes") {
           ctx.octokit.repos.createCommitComment({
             commit_sha: ctx.payload.after,
             repo: ctx.payload.repository.name,
@@ -395,57 +394,72 @@ if(msgBody.includes('.example_cmd')) {
             owner: ctx.payload.repository.owner.name,
           });
         } else {
-      
-// assuming there are NO new copies this works otherwise will crash and give up
-try {
-  let str_of_repos = []
-  const repos = await context.octokit.rest.repos.listForAuthenticatedUser({
-    per_page: 100,
-    username: 'NeonGamerBot-QK'
-  })
-   for(const e of repos.data) {
-  try {
-    if(e.archived || e.fork) continue;
-    if(e.name == "jumaos") continue;
-    if(e.topics && e.topics.includes('skip-check')) continue;
-    const metaIssue = (await context.octokit.issues.listForRepo({
-      owner: e.owner.login,
-      repo: e.name,
-      state: 'open',
-      labels: 'meta'
-    })).data
-    const metaIssueUrl = metaIssue.find(e=>e.user.login.includes('zeon'))
-// console.log([metaIssueUrl])
-    str_of_repos.push({
-      str: `[${e.full_name}](https://github.com/${e.full_name}) - ${metaIssueUrl?.html_url ?? "No meta issue"}`,
-      v: e.visibility == 'public' ? 0 : 1
-    })
-  } catch (e) {
-    console.error(e)
-  }
-  }
-  await new Promise(r => setTimeout(r, 1500))
-  console.log(str_of_repos.filter(r=>r.v== 1).length)
-  await context.octokit.repos.createOrUpdateFileContents(
-    context.repo({
-      path: `private_repos.md`,
-      message: `feat(private_repos): + create private repos`,
-      content: Buffer.from(`## Private Repos\n`+str_of_repos.filter(r => r.v == 1).map(e=>e.str).join('\n<br />')).toString("base64"),
-    }),
-  );
- await context.octokit.repos.createOrUpdateFileContents(
-    context.repo({
-      path: `public/repos.md`,
-      message: `feat(public_repos): + create public repos`,
-      content: Buffer.from(`## Public Repos\n`+str_of_repos.filter(r => r.v == 0).map(e=>e.str).join('\n<br />')).toString("base64"),
-    }),
-  );
-} catch (e) {
-  // welp gg
-  console.error(e)
-}
+          // assuming there are NO new copies this works otherwise will crash and give up
+          try {
+            let str_of_repos = [];
+            const repos =
+              await context.octokit.rest.repos.listForAuthenticatedUser({
+                per_page: 100,
+                username: "NeonGamerBot-QK",
+              });
+            for (const e of repos.data) {
+              try {
+                if (e.archived || e.fork) continue;
+                if (e.name == "jumaos") continue;
+                if (e.topics && e.topics.includes("skip-check")) continue;
+                const metaIssue = (
+                  await context.octokit.issues.listForRepo({
+                    owner: e.owner.login,
+                    repo: e.name,
+                    state: "open",
+                    labels: "meta",
+                  })
+                ).data;
+                const metaIssueUrl = metaIssue.find((e) =>
+                  e.user.login.includes("zeon"),
+                );
+                // console.log([metaIssueUrl])
+                str_of_repos.push({
+                  str: `[${e.full_name}](https://github.com/${e.full_name}) - ${metaIssueUrl?.html_url ?? "No meta issue"}`,
+                  v: e.visibility == "public" ? 0 : 1,
+                });
+              } catch (e) {
+                console.error(e);
+              }
+            }
+            await new Promise((r) => setTimeout(r, 1500));
+            console.log(str_of_repos.filter((r) => r.v == 1).length);
+            await context.octokit.repos.createOrUpdateFileContents(
+              context.repo({
+                path: `private_repos.md`,
+                message: `feat(private_repos): + create private repos`,
+                content: Buffer.from(
+                  `## Private Repos\n` +
+                    str_of_repos
+                      .filter((r) => r.v == 1)
+                      .map((e) => e.str)
+                      .join("\n<br />"),
+                ).toString("base64"),
+              }),
+            );
+            await context.octokit.repos.createOrUpdateFileContents(
+              context.repo({
+                path: `public/repos.md`,
+                message: `feat(public_repos): + create public repos`,
+                content: Buffer.from(
+                  `## Public Repos\n` +
+                    str_of_repos
+                      .filter((r) => r.v == 0)
+                      .map((e) => e.str)
+                      .join("\n<br />"),
+                ).toString("base64"),
+              }),
+            );
+          } catch (e) {
+            // welp gg
+            console.error(e);
+          }
         }
-
       } else if (file.filename.includes(".create_readme")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
@@ -626,35 +640,51 @@ url: "${ctx.payload.repository.html_url}"`;
         } catch (e) {
           console.error(`tts failed`, e);
         }
-      } else if (file.filename.endsWith('.zeon.template')) {
-        const realFilename = file.filename.slice(0, file.filename.length - '.zeon.template'.length)
+      } else if (file.filename.endsWith(".zeon.template")) {
+        const realFilename = file.filename.slice(
+          0,
+          file.filename.length - ".zeon.template".length,
+        );
         const ejsParams = {
-          payload: ctx.payload, 
+          payload: ctx.payload,
           config: {
-            delete_template_file: Math.random()
-          }
-        }
-        const filee = await ctx.octokit.rest.repos.getContent(ctx.repo({
-          path: file.filename
-        })).then(e=>e.data)
+            delete_template_file: Math.random(),
+          },
+        };
+        const filee = await ctx.octokit.rest.repos
+          .getContent(
+            ctx.repo({
+              path: file.filename,
+            }),
+          )
+          .then((e) => e.data);
         try {
-          await ctx.octokit.rest.repos.createOrUpdateFileContents(ctx.repo({
-            path: realFilename,
-            message: "[ZEON] Create file",
-            content: Buffer.from(".").toString('base64'),
-          }))
+          await ctx.octokit.rest.repos.createOrUpdateFileContents(
+            ctx.repo({
+              path: realFilename,
+              message: "[ZEON] Create file",
+              content: Buffer.from(".").toString("base64"),
+            }),
+          );
         } catch (e) {}
-        const out = require('ejs').render(Buffer.from(filee.content,'base64').toString(),ejsParams)
-   try {
-    await ctx.octokit.rest.repos.createOrUpdateFileContents(ctx.repo({
-      path: realFilename,
-      message: `[ZEON] Template file content`,
-      content: Buffer.from(out).toString('base64'),
-      sha: await ctx.octokit.rest.repos.getContent(ctx.repo({ path: realFilename})).then(e=>e.data.sha)
-    }))
-   } catch (e) {
-    console.error(e)
-   }
+        const out = require("ejs").render(
+          Buffer.from(filee.content, "base64").toString(),
+          ejsParams,
+        );
+        try {
+          await ctx.octokit.rest.repos.createOrUpdateFileContents(
+            ctx.repo({
+              path: realFilename,
+              message: `[ZEON] Template file content`,
+              content: Buffer.from(out).toString("base64"),
+              sha: await ctx.octokit.rest.repos
+                .getContent(ctx.repo({ path: realFilename }))
+                .then((e) => e.data.sha),
+            }),
+          );
+        } catch (e) {
+          console.error(e);
+        }
       }
     });
   });
