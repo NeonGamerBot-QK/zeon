@@ -372,6 +372,80 @@ if(msgBody.includes('.example_cmd')) {
             message: `chore(cleanup): Delete ${file.filename} file`,
           }),
         );
+      }  else if(file.filename.includes('.create_notes_list')) {
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: `chore(cleanup): Delete ${file.filename} file`,
+          }),
+        );
+        if(ctx.payload.repository.name !== 'my-notes') {
+          ctx.octokit.repos.createCommitComment({
+            commit_sha: ctx.payload.after,
+            repo: ctx.payload.repository.name,
+            body: `Please use this in the right [repo](https://github.com/NeonGamerBot-QK/my-notes)`,
+            owner: ctx.payload.repository.owner.name,
+          });
+        } else {
+      
+// assuming there are NO new copies this works otherwise will crash and give up
+try {
+  let str_of_repos = []
+  const repos = await context.octokit.rest.repos.listForAuthenticatedUser({
+    per_page: 100,
+    username: 'NeonGamerBot-QK'
+  })
+   for(const e of repos.data) {
+  try {
+    if(e.archived || e.fork) continue;
+    if(e.name == "jumaos") continue;
+    if(e.topics && e.topics.includes('skip-check')) continue;
+    const metaIssue = (await context.octokit.issues.listForRepo({
+      owner: e.owner.login,
+      repo: e.name,
+      state: 'open',
+      labels: 'meta'
+    })).data
+    const metaIssueUrl = metaIssue.find(e=>e.user.login.includes('zeon'))
+// console.log([metaIssueUrl])
+    str_of_repos.push({
+      str: `[${e.full_name}](https://github.com/${e.full_name}) - ${metaIssueUrl?.html_url ?? "No meta issue"}`,
+      v: e.visibility == 'public' ? 0 : 1
+    })
+  } catch (e) {
+    console.error(e)
+  }
+  }
+  await new Promise(r => setTimeout(r, 1500))
+  console.log(str_of_repos.filter(r=>r.v== 1).length)
+  await context.octokit.repos.createOrUpdateFileContents(
+    context.repo({
+      path: `private_repos.md`,
+      message: `feat(private_repos): + create private repos`,
+      content: Buffer.from(`## Private Repos\n`+str_of_repos.filter(r => r.v == 1).map(e=>e.str).join('\n<br />')).toString("base64"),
+    }),
+  );
+ await context.octokit.repos.createOrUpdateFileContents(
+    context.repo({
+      path: `public/repos.md`,
+      message: `feat(public_repos): + create public repos`,
+      content: Buffer.from(`## Public Repos\n`+str_of_repos.filter(r => r.v == 0).map(e=>e.str).join('\n<br />')).toString("base64"),
+    }),
+  );
+} catch (e) {
+  // welp gg
+  console.error(e)
+}
+        }
+
       } else if (file.filename.includes(".create_readme")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
