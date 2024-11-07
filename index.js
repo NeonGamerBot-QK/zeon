@@ -71,7 +71,7 @@ module.exports = (app) => {
     try {
       const data = parser(ctx.payload.pull_request.title);
       const type = data.children[0].children.find(
-        (e) => e.type == "type",
+        (e) => e.type == "type"
       ).value;
       const scope = data.children[0].children.find((e) => e.type == "scope");
       // if(ctx.octokit.ge )
@@ -146,14 +146,14 @@ I require pull request titles to follow the [Conventional Commits specification]
   app.on(["issues.closed"], async (ctx) => {
     app.log.info("closed issue");
     return ctx.octokit.issues.createComment(
-      ctx.issue({ body: "## Thank you for your issue!" }),
+      ctx.issue({ body: "## Thank you for your issue!" })
     );
   });
   app.on(["pull_request.opened"], async (ctx) => {
     if (
       ctx.payload.repository.name == ctx.payload.repository.owner.login ||
       ["https://github.com/NeonGamerBot-QK/Vencord-builds"].some((u) =>
-        u.includes(ctx.payload.repository.full_name),
+        u.includes(ctx.payload.repository.full_name)
       )
     ) {
       await ctx.octokit.issues.createComment({
@@ -211,7 +211,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         deploy_repos.some((e) => e.url === context.payload.repository.html_url)
       ) {
         const repoConfig = deploy_repos.find(
-          (e) => e.url === context.payload.repository.html_url,
+          (e) => e.url === context.payload.repository.html_url
         );
         const branchName = context.payload.pull_request.head.ref; // HOW AM I SUPPOSED TO GET THE BRANCh!
         const prNumber = context.payload.pull_request.number;
@@ -228,7 +228,7 @@ I require pull request titles to follow the [Conventional Commits specification]
               repo,
               outDir: repoConfig.outDir,
             })}'`,
-          ],
+          ]
         );
         app.log.info("Command line: " + commandLine);
         execCmd(
@@ -239,12 +239,12 @@ I require pull request titles to follow the [Conventional Commits specification]
             port: ServerConfig.WebPanel.port,
           },
           commandLine,
-          app.log,
+          app.log
         ).then((e) => {
           const params = context.issue({
             body: `## Thanks for making a PR\n You can see a live version of this PR [here](${repoConfig.templateUrl.replace(
               "{pr}",
-              prNumber,
+              prNumber
             )})`,
           });
 
@@ -284,7 +284,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       //       auto_inactive: true // Adds a new inactive status to all prior non-transient, non-production environment deployments with the same repository and environment name as the created status's deployment. An inactive status is only added to deployments that had a success state.
       //     })
       //   );
-    },
+    }
   );
   // on repo create event
   app.on(["repository.created"], (ctx) => {
@@ -305,7 +305,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         body: `> ${msgBody
           .split("\n")
           .join(
-            "\n> ",
+            "\n> "
           )}\n\nHello World! (triggered from cmd: \`.example_cmd\`)`,
         owner: ctx.payload.repository.owner.login,
       });
@@ -323,7 +323,7 @@ I require pull request titles to follow the [Conventional Commits specification]
                   "X-GitHub-Api-Version": "2022-11-28",
                   Accept: "application/vnd.github.patch",
                 },
-              }),
+              })
             )
             .then((e) => e.data),
         },
@@ -341,7 +341,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       });
       console.log(
         chatCompletion.choices[0].message.content,
-        "rip tokens used on this commit message",
+        "rip tokens used on this commit message"
       );
       ctx.octokit.repos.createCommitComment({
         commit_sha: ctx.payload.comment.commit_id,
@@ -365,7 +365,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         body: `> ${msgBody
           .split("\n")
           .join(
-            "\n> ",
+            "\n> "
           )}\n\nHello World! (triggered from cmd: \`.example_cmd\`)`,
         owner: ctx.payload.repository.owner.login,
       });
@@ -383,7 +383,7 @@ I require pull request titles to follow the [Conventional Commits specification]
                   "X-GitHub-Api-Version": "2022-11-28",
                   Accept: "application/vnd.github.patch",
                 },
-              }),
+              })
             )
             .then((e) => e.data),
         },
@@ -401,7 +401,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       });
       console.log(
         chatCompletion.choices[0].message.content,
-        "rip tokens used on this commit message",
+        "rip tokens used on this commit message"
       );
       ctx.octokit.repos.createCommitComment({
         commit_sha: ctx.payload.comment.commit_id,
@@ -422,7 +422,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       context.repo({
         base: push.before,
         head: push.after,
-      }),
+      })
     );
 
     const branch = push.ref.replace("refs/heads/", "");
@@ -433,7 +433,7 @@ I require pull request titles to follow the [Conventional Commits specification]
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -441,14 +441,14 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: file.filename,
             branch,
             message: `chore(cleanup): Delete ${file.filename} file`,
-          }),
+          })
         );
       } else if (file.filename.includes(".create_notes_list")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -456,7 +456,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: file.filename,
             branch,
             message: `chore(cleanup): Delete ${file.filename} file`,
-          }),
+          })
         );
         if (ctx.payload.repository.name !== "my-notes") {
           ctx.octokit.repos.createCommitComment({
@@ -488,7 +488,7 @@ I require pull request titles to follow the [Conventional Commits specification]
                   })
                 ).data;
                 const metaIssueUrl = metaIssue.find((e) =>
-                  e.user.login.includes("zeon"),
+                  e.user.login.includes("zeon")
                 );
                 // console.log([metaIssueUrl])
                 str_of_repos.push({
@@ -512,9 +512,9 @@ I require pull request titles to follow the [Conventional Commits specification]
                     str_of_repos
                       .filter((r) => r.v == 1)
                       .map((e) => e.str)
-                      .join("\n<br />"),
+                      .join("\n<br />")
                 ).toString("base64"),
-              }),
+              })
             );
             await context.octokit.repos.createOrUpdateFileContents(
               context.repo({
@@ -525,9 +525,9 @@ I require pull request titles to follow the [Conventional Commits specification]
                     str_of_repos
                       .filter((r) => r.v == 0)
                       .map((e) => e.str)
-                      .join("\n<br />"),
+                      .join("\n<br />")
                 ).toString("base64"),
-              }),
+              })
             );
           } catch (e) {
             // welp gg
@@ -539,7 +539,7 @@ I require pull request titles to follow the [Conventional Commits specification]
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -547,7 +547,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: file.filename,
             branch,
             message: "chore(cleanup): Delete .create_readme file",
-          }),
+          })
         );
         const config = context.config("zeon/readme.yml") || {};
         let example_readme = fs.readFileSync("example_readme.md").toString();
@@ -569,7 +569,7 @@ I require pull request titles to follow the [Conventional Commits specification]
               path: `README.md`,
               message: `enhancement(readme): Create Readme.md`,
               content: Buffer.from(example_readme).toString("base64"),
-            }),
+            })
           );
         } catch (e) {
           console.error(e);
@@ -580,7 +580,7 @@ I require pull request titles to follow the [Conventional Commits specification]
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -588,7 +588,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: file.filename,
             branch,
             message: `chore(cleanup): Delete ${file.filename} file`,
-          }),
+          })
         );
         const mitData = require("mit")(require("./package.json").author);
         try {
@@ -597,7 +597,7 @@ I require pull request titles to follow the [Conventional Commits specification]
               path: `LICENSE.txt`,
               message: `enhancement(LICENSE): Create LICENSE.txt`,
               content: Buffer.from(mitData).toString("base64"),
-            }),
+            })
           );
         } catch (e) {
           console.error(e);
@@ -606,7 +606,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       } else if (file.filename.includes(".create_citation")) {
         // @see https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files
         const repoCreatedYear = new Date(
-          ctx.payload.repository.created_at * 1000,
+          ctx.payload.repository.created_at * 1000
         )
           .toISOString()
           .split("T")[0];
@@ -614,7 +614,7 @@ I require pull request titles to follow the [Conventional Commits specification]
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -622,7 +622,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: file.filename,
             branch,
             message: `chore(cleanup): Delete ${file.filename} file`,
-          }),
+          })
         );
         try {
           const fileData = `cff-version: 1.2.0
@@ -640,7 +640,7 @@ url: "${ctx.payload.repository.html_url}"`;
               path: `CITATION.cff`,
               message: `ci(git): Create citations`,
               content: Buffer.from(fileData).toString("base64"),
-            }),
+            })
           );
         } catch (e) {
           console.error(e);
@@ -651,7 +651,7 @@ url: "${ctx.payload.repository.html_url}"`;
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -659,7 +659,7 @@ url: "${ctx.payload.repository.html_url}"`;
             path: file.filename,
             branch,
             message: `chore(cleanup): Delete ${file.filename} file`,
-          }),
+          })
         );
         try {
           context.octokit.repos.createOrUpdateFileContents(
@@ -667,9 +667,9 @@ url: "${ctx.payload.repository.html_url}"`;
               path: `.github/FUNDING.yml`,
               message: `ci(git): Create funding.yml`,
               content: Buffer.from(
-                `# Autogenerated file. \n# Zeon created this file.\nko_fi: saahil\ngithub: [NeonGamerBot-QK]`,
+                `# Autogenerated file. \n# Zeon created this file.\nko_fi: saahil\ngithub: [NeonGamerBot-QK]`
               ).toString("base64"),
-            }),
+            })
           );
         } catch (e) {
           console.error(e);
@@ -680,11 +680,11 @@ url: "${ctx.payload.repository.html_url}"`;
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         const [fileOutName, ...contentSplits] = Buffer.from(
           content.data.content,
-          "base64",
+          "base64"
         )
           .toString()
           .split(" ");
@@ -694,7 +694,7 @@ url: "${ctx.payload.repository.html_url}"`;
             path: file.filename,
             branch,
             message: `chore(cleanup): Delete ${file.filename} file`,
-          }),
+          })
         );
         if (!fileOutName) return;
         if (contentSplits.length <= 0) return;
@@ -709,7 +709,7 @@ url: "${ctx.payload.repository.html_url}"`;
               path: fileOutName,
               message: `assets(mp3): Create TTS file`,
               content: Buffer.from(await mp3.arrayBuffer()).toString("base64"),
-            }),
+            })
           );
         } catch (e) {
           console.error(`tts failed`, e);
@@ -717,7 +717,7 @@ url: "${ctx.payload.repository.html_url}"`;
       } else if (file.filename.endsWith(".zeon.template")) {
         const realFilename = file.filename.slice(
           0,
-          file.filename.length - ".zeon.template".length,
+          file.filename.length - ".zeon.template".length
         );
         const ejsParams = {
           payload: ctx.payload,
@@ -729,7 +729,7 @@ url: "${ctx.payload.repository.html_url}"`;
           .getContent(
             ctx.repo({
               path: file.filename,
-            }),
+            })
           )
           .then((e) => e.data);
         try {
@@ -738,12 +738,12 @@ url: "${ctx.payload.repository.html_url}"`;
               path: realFilename,
               message: "[ZEON] Create file",
               content: Buffer.from(".").toString("base64"),
-            }),
+            })
           );
         } catch (e) {}
         const out = require("ejs").render(
           Buffer.from(filee.content, "base64").toString(),
-          ejsParams,
+          ejsParams
         );
         try {
           await ctx.octokit.rest.repos.createOrUpdateFileContents(
@@ -754,7 +754,7 @@ url: "${ctx.payload.repository.html_url}"`;
               sha: await ctx.octokit.rest.repos
                 .getContent(ctx.repo({ path: realFilename }))
                 .then((e) => e.data.sha),
-            }),
+            })
           );
         } catch (e) {
           console.error(e);
@@ -769,7 +769,7 @@ url: "${ctx.payload.repository.html_url}"`;
     if (!config) return;
     console.log(config);
     console.log(
-      `what to do next... (use payload to get patch, get patch to get tge prompted ans)`,
+      `what to do next... (use payload to get patch, get patch to get tge prompted ans)`
     );
     if (config["ai-review"]) {
       const { data: diff } = await context.octokit.rest.pulls.get(
@@ -778,7 +778,7 @@ url: "${ctx.payload.repository.html_url}"`;
           mediaType: {
             format: "patch",
           },
-        }),
+        })
       );
       // console.log(diff);
       console.log(`ok now ai after this test`);
@@ -794,7 +794,7 @@ url: "${ctx.payload.repository.html_url}"`;
           content:
             `Decide if that file should be merged into the main branch.  write why you are accepting/declining it and format it in markdown. Format in JSON with a properties which has the verdict and one with the summary with new lines. The rules are: {rules}. No Code Block.`.replace(
               "{rules}",
-              config["ai-review"]["rules"],
+              config["ai-review"]["rules"]
             ),
         },
       ];
@@ -805,7 +805,7 @@ url: "${ctx.payload.repository.html_url}"`;
       });
       console.log(
         chatCompletion.choices[0].message.content,
-        "rip tokens used on this commit message",
+        "rip tokens used on this commit message"
       );
       const out = JSON.parse(chatCompletion.choices[0].message.content);
       ctx.octokit.issues.createComment(
@@ -820,13 +820,13 @@ url: "${ctx.payload.repository.html_url}"`;
                ? `<p>The AI's actions will be taken and can be taken back later. </p>`
                : `<p>The AI's actions verdict was {verdict} but no action will be taken</p>`.replace(
                    "{verdict}",
-                   out.verdict,
+                   out.verdict
                  )
            }
          </details>`,
 
           issue_number: ctx.payload.pull_request.number,
-        }),
+        })
       );
       if (config["ai-review"]["allow-it-to-create-action"]) {
         switch (out.verdict) {
@@ -873,7 +873,7 @@ url: "${ctx.payload.repository.html_url}"`;
 
         const data = parser(ctx.payload.pull_request.title);
         const type = data.children[0].children.find(
-          (e) => e.type == "type",
+          (e) => e.type == "type"
         ).value;
         const scope = data.children[0].children.find((e) => e.type == "scope");
         await context.octokit.checks.create(
@@ -890,7 +890,7 @@ url: "${ctx.payload.repository.html_url}"`;
             //   title: "CC",
             //   summary: "All commits are in correct formating.",
             // },
-          }),
+          })
         );
       } catch (e) {
         console.error("cry", e);
@@ -929,7 +929,7 @@ I require pull request titles to follow the [Conventional Commits specification]
                 identifier: "override",
               },
             ],
-          }),
+          })
         );
       }
     }
@@ -942,10 +942,10 @@ I require pull request titles to follow the [Conventional Commits specification]
           context.repo({
             base: push.before,
             head: push.after,
-          }),
+          })
         );
         const filesMatched = compare.data.files.filter((f) =>
-          f.blob_url.includes(fc.id),
+          f.blob_url.includes(fc.id)
         );
         try {
           await ctx.octokit.repos.createOrUpdateFileContents(
@@ -953,9 +953,9 @@ I require pull request titles to follow the [Conventional Commits specification]
               path: ".github/CODEOWNERS",
               message: `ci(git): create codeowners`,
               content: Buffer.from(
-                `# Autogenerated. Edit at ur own risk. \n# Zeon created this codeowners file. All instances of zeon will maintain it and so will neon.\n# TO get zeon to approve changes on pr with its files neon must approve it and run \`.zeon_approve\` in the PR\n.github/CODEOWNERS @zeon-neon @NeonGamerBot-QK\n# Zeons directory\n/zeon/ @zeon-neon`,
+                `# Autogenerated. Edit at ur own risk. \n# Zeon created this codeowners file. All instances of zeon will maintain it and so will neon.\n# TO get zeon to approve changes on pr with its files neon must approve it and run \`.zeon_approve\` in the PR\n.github/CODEOWNERS @zeon-neon @NeonGamerBot-QK\n# Zeons directory\n/zeon/ @zeon-neon`
               ).toString("base64"),
-            }),
+            })
           );
         } catch (e) {}
         // line above is incase it fails because the file exists OR codeowners says no
@@ -964,7 +964,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             ctx.repo({
               path: ".github/CODEOWNERS",
               ref: branch,
-            }),
+            })
           )
           .then((e) => {
             e.data.content = Buffer.from(e.data.content, "base64").toString();
@@ -986,11 +986,11 @@ I require pull request titles to follow the [Conventional Commits specification]
                       currentFileContent.data.content +
                       "\n" +
                       appendToCodeOwners
-                    ).split("\n"),
+                    ).split("\n")
                   ),
-                ].join("\n"),
+                ].join("\n")
               ).toString("base64"),
-            }),
+            })
           );
         } catch (e) {
           // can fail when, updating its own codeowners file.
@@ -1023,7 +1023,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       ctx.payload.pusher.name
     ) {
       const fc = push.commits.find((c) =>
-        c.message.includes("zeon:codeowners"),
+        c.message.includes("zeon:codeowners")
       );
       console.log(`#codeowners`);
       // ctx.octokit.repos.createCommitComment({
@@ -1036,10 +1036,10 @@ I require pull request titles to follow the [Conventional Commits specification]
         context.repo({
           base: push.before,
           head: push.after,
-        }),
+        })
       );
       const filesMatched = compare.data.files.filter((f) =>
-        f.blob_url.includes(fc.id),
+        f.blob_url.includes(fc.id)
       );
       try {
         await ctx.octokit.repos.createOrUpdateFileContents(
@@ -1047,9 +1047,9 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: ".github/CODEOWNERS",
             message: `ci(git): create codeowners`,
             content: Buffer.from(
-              `# Autogenerated. Edit at ur own risk. \n# Zeon created this codeowners file. All instances of zeon will maintain it and so will neon.\n# TO get zeon to approve changes on pr with its files neon must approve it and run \`.zeon_approve\` in the PR\n.github/CODEOWNERS @zeon-neon @NeonGamerBot-QK\n# Zeons directory\n/zeon/ @zeon-neon`,
+              `# Autogenerated. Edit at ur own risk. \n# Zeon created this codeowners file. All instances of zeon will maintain it and so will neon.\n# TO get zeon to approve changes on pr with its files neon must approve it and run \`.zeon_approve\` in the PR\n.github/CODEOWNERS @zeon-neon @NeonGamerBot-QK\n# Zeons directory\n/zeon/ @zeon-neon`
             ).toString("base64"),
-          }),
+          })
         );
       } catch (e) {}
       // line above is incase it fails because the file exists OR codeowners says no
@@ -1058,7 +1058,7 @@ I require pull request titles to follow the [Conventional Commits specification]
           ctx.repo({
             path: ".github/CODEOWNERS",
             ref: branch,
-          }),
+          })
         )
         .then((e) => {
           e.data.content = Buffer.from(e.data.content, "base64").toString();
@@ -1073,15 +1073,15 @@ I require pull request titles to follow the [Conventional Commits specification]
           message: `ci(git): update codeowners`,
           sha: currentFileContent.data.sha,
           content: Buffer.from(
-            currentFileContent.data.content + "\n" + appendToCodeOwners,
+            currentFileContent.data.content + "\n" + appendToCodeOwners
           ).toString("base64"),
-        }),
+        })
       );
       // console.log(`codeowners`, compare.data.files);
     }
     if (push.commits.some((c) => c.message.includes("zeon:ai_comment"))) {
       const fc = push.commits.find((c) =>
-        c.message.includes("zeon:ai_comment"),
+        c.message.includes("zeon:ai_comment")
       );
       //todo convert to octokti
       const messages = [
@@ -1096,7 +1096,7 @@ I require pull request titles to follow the [Conventional Commits specification]
                   "X-GitHub-Api-Version": "2022-11-28",
                   Accept: "application/vnd.github.patch",
                 },
-              }),
+              })
             )
             .then((e) => e.data),
         },
@@ -1113,7 +1113,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       });
       console.log(
         chatCompletion.choices[0].message.content,
-        "rip tokens used on this commit message",
+        "rip tokens used on this commit message"
       );
       ctx.octokit.repos.createCommitComment({
         commit_sha: ctx.payload.after,
@@ -1135,7 +1135,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       context.repo({
         base: push.before,
         head: push.after,
-      }),
+      })
     );
 
     const branch = push.ref.replace("refs/heads/", "");
@@ -1146,7 +1146,7 @@ I require pull request titles to follow the [Conventional Commits specification]
           ctx.repo({
             path: file.filename,
             ref: branch,
-          }),
+          })
         );
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -1154,7 +1154,7 @@ I require pull request titles to follow the [Conventional Commits specification]
             path: file.filename,
             branch,
             message: "chore(cleanup): Delete .DS_STORE files",
-          }),
+          })
         );
       }
     });
@@ -1203,6 +1203,21 @@ I require pull request titles to follow the [Conventional Commits specification]
   // })
 
   app.on("push", (ctx) => {
+    fetch("https://slack.mybot.saahild.com/github-cb-for-slack", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        repo_name: ctx.payload.repository.name,
+        commit_id: ctx.payload.after,
+        commit_url: `https://github.com/${
+          ctx.payload.repository.owner.login || "NeonGamerBot-QK"
+        }/${ctx.payload.repository.name}/commits/${ctx.payload.after}`,
+      }),
+    })
+      .catch(() => {})
+      .then(() => {});
     if (ctx.payload.repository.name !== "zeon") {
       app.log(`Not my repo to pull from`);
       return;
@@ -1244,7 +1259,7 @@ I require pull request titles to follow the [Conventional Commits specification]
         .addCollaborator(
           ctx.repo({
             username: `zeon-neon`,
-          }),
+          })
         )
         .then((r) => {
           fetch(
@@ -1256,7 +1271,7 @@ I require pull request titles to follow the [Conventional Commits specification]
                 Authorization: "Bearer " + process.env.ZEON_USER_TOKEN,
                 "X-GitHub-Api-Version": "2022-11-28",
               },
-            },
+            }
           );
         });
     } catch (e) {}
@@ -1264,11 +1279,11 @@ I require pull request titles to follow the [Conventional Commits specification]
       const ghc = new GithubActionsClient(
         ctx.payload.repository.owner.login,
         ctx.payload.repository.name,
-        process.env.ZEON_USER_TOKEN,
+        process.env.ZEON_USER_TOKEN
       );
       ghc.CreateOrUpdateSecret(`INJECTED_ENV`, `1`);
       Object.entries(
-        require("dotenv").parse(fs.readFileSync(`./.env.repo`)),
+        require("dotenv").parse(fs.readFileSync(`./.env.repo`))
       ).forEach(([key, value]) => {
         ghc.CreateOrUpdateSecret(key, value);
       });
