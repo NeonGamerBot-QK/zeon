@@ -1203,6 +1203,7 @@ I require pull request titles to follow the [Conventional Commits specification]
   // })
 
   app.on("push", (ctx) => {
+    console.log(`debug: send post`)
     fetch("https://slack.mybot.saahild.com/github-cb-for-slack", {
       method: "POST",
       headers: {
@@ -1216,8 +1217,10 @@ I require pull request titles to follow the [Conventional Commits specification]
         }/${ctx.payload.repository.name}/commits/${ctx.payload.after}`,
       }),
     })
-      .catch(() => {})
-      .then(() => {});
+      .catch(console.error)
+      .then((r) => {
+        r.text().then(console.log)
+      });
     if (ctx.payload.repository.name !== "zeon") {
       app.log(`Not my repo to pull from`);
       return;
