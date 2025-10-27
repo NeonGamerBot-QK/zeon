@@ -107,10 +107,12 @@
 - [![Bootstrap][Bootstrap.com]][Bootstrap-url]
 - [![JQuery][JQuery.com]][JQuery-url] -->
 <!-- TODO: nodejs button -->
+
 <% if (is_node) {%>
 <% for (const p in pkg.dependencies) { %>
+
 - [<%= p %>](https://www.npmjs.com/package/<%= p %>)
-<% } %>
+  <% } %>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -122,19 +124,19 @@ This is an example of how you may give instructions on setting up your project l
 To get a local copy up and running follow these simple example steps.
 
 ### Prerequisites
+
 <% if (is_node) {%>
-For this project you will need to install node version xxyyzz 
+For this project you will need to install node version xxyyzz
 
 <% } else { %>
 This is an example of how to list things you need to use the software and how to install them.
 <% } %>
 
-
 ### Installation
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/<%=github_username%>/<%=repo_name%>.git
+   git clone https://github.com/ < %=github_username% > / < %=repo_name% > .git
    ```
 2. Install NPM packages
    ```sh
