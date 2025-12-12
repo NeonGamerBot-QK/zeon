@@ -701,6 +701,56 @@ url: "${ctx.payload.repository.html_url}"`;
           console.error(e);
           console.log(6, `failed`);
         }
+      } else if (file.filename.includes(".amp_code")) {
+        // Handle .amp_code files - reads content and uses amp-sdk to create code in repo
+        const content = await context.octokit.repos.getContent(
+          ctx.repo({
+            path: file.filename,
+            ref: branch,
+          }),
+        );
+        const fileContent = Buffer.from(content.data.content, "base64").toString();
+        
+        // Delete the .amp_code command file
+        ctx.octokit.repos.deleteFile(
+          ctx.repo({
+            sha: content.data.sha,
+            path: file.filename,
+            branch,
+            message: `chore(cleanup): Delete ${file.filename} file`,
+          }),
+        );
+
+        try {
+          const { execute } = require("@sourcegraph/amp-sdk");
+          const ampPrompt = fileContent.trim();
+          
+          // Execute amp-sdk with the prompt from the file content
+          let ampResult = null;
+          for await (const message of execute({ prompt: ampPrompt })) {
+            if (message.type === "result" && !message.is_error) {
+              ampResult = message.result;
+              break;
+            }
+          }
+
+          // Push the created code to the repository
+          if (ampResult && ampResult.files) {
+            for (const [filePath, generatedContent] of Object.entries(ampResult.files)) {
+              await ctx.octokit.repos.createOrUpdateFileContents(
+                ctx.repo({
+                  path: filePath,
+                  message: `feat(amp): Generated code via amp-sdk`,
+                  content: Buffer.from(generatedContent).toString("base64"),
+                }),
+              );
+            }
+          }
+          
+          console.log("Successfully created and pushed code via amp-sdk");
+        } catch (e) {
+          console.error("Error processing .amp_code file:", e);
+        }
       } else if (file.filename.includes(".create_funding")) {
         const content = await context.octokit.repos.getContent(
           ctx.repo({
