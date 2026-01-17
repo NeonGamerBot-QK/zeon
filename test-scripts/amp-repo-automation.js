@@ -67,7 +67,9 @@ function runAmpCli(workDir, prompt) {
 
     // Check for AMP_API_KEY
     if (!process.env.AMP_API_KEY) {
-      console.warn("⚠️  Warning: AMP_API_KEY not set. Amp may require authentication.");
+      console.warn(
+        "⚠️  Warning: AMP_API_KEY not set. Amp may require authentication.",
+      );
     }
 
     // Escape the prompt for shell use (escape single quotes)
@@ -109,7 +111,7 @@ async function main(repoUrl, ampPrompt, branch = DEFAULT_BRANCH) {
   if (!repoUrl) {
     console.error("❌ Error: Repository URL is required");
     console.log(
-      "\nUsage: node amp-repo-automation.js <repo-url> \"<amp-prompt>\" [branch]"
+      '\nUsage: node amp-repo-automation.js <repo-url> "<amp-prompt>" [branch]',
     );
     process.exit(1);
   }
@@ -117,14 +119,19 @@ async function main(repoUrl, ampPrompt, branch = DEFAULT_BRANCH) {
   if (!ampPrompt) {
     console.error("❌ Error: Amp prompt is required");
     console.log(
-      "\nUsage: node amp-repo-automation.js <repo-url> \"<amp-prompt>\" [branch]"
+      '\nUsage: node amp-repo-automation.js <repo-url> "<amp-prompt>" [branch]',
     );
     process.exit(1);
   }
 
   // Extract repo name from URL for the temp directory
-  const repoName = path.basename(repoUrl, ".git").replace(/[^a-zA-Z0-9-_]/g, "_");
-  const tempDir = path.join(os.tmpdir(), `amp-automation-${repoName}-${Date.now()}`);
+  const repoName = path
+    .basename(repoUrl, ".git")
+    .replace(/[^a-zA-Z0-9-_]/g, "_");
+  const tempDir = path.join(
+    os.tmpdir(),
+    `amp-automation-${repoName}-${Date.now()}`,
+  );
 
   console.log("🚀 Starting Amp Repository Automation");
   console.log("=====================================");
@@ -136,7 +143,9 @@ async function main(repoUrl, ampPrompt, branch = DEFAULT_BRANCH) {
   try {
     // Step 1: Clone the repository
     console.log("\n📥 Step 1: Cloning repository...");
-    runCommand(`git clone --branch ${branch} --single-branch "${repoUrl}" "${tempDir}"`);
+    runCommand(
+      `git clone --branch ${branch} --single-branch "${repoUrl}" "${tempDir}"`,
+    );
 
     // Step 2: Run Amp CLI
     console.log("\n🤖 Step 2: Running Amp CLI...");
