@@ -9,7 +9,7 @@ Clones a repository, runs the Amp CLI to perform tasks, then commits and pushes 
 ### Usage
 
 ```bash
-node amp-repo-automation.js <repo-url> "<amp-prompt>" [branch]
+node amp-repo-automation.js [branch] < repo-url > "<amp-prompt>"
 ```
 
 ### Examples
@@ -43,5 +43,6 @@ COMMIT_MESSAGE="feat: add types" node amp-repo-automation.js https://github.com/
 ### How It Works
 
 The script uses the Amp CLI with:
+
 - `--execute` (`-x`) flag for non-interactive execution
 - `--dangerously-allow-all` to auto-approve all tool uses without prompting
