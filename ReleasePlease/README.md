@@ -13,6 +13,7 @@ Automates CHANGELOG generation, version bumps, and GitHub releases based on [Con
 ## How It Works
 
 1. **Push to main branch** → Creates/updates a Release PR with:
+
    - Updated `CHANGELOG.md`
    - Version bump in `package.json`
    - Summary of changes since last release
@@ -64,6 +65,7 @@ And `.release-please-manifest.json`:
 ### Via Comment
 
 Comment on any PR:
+
 - `/release-please`
 - `/zeon release`
 - `zeon release`
@@ -74,31 +76,31 @@ Add label `release-please:force-run` to any PR.
 
 ## Supported Release Types
 
-| Type | Description |
-|------|-------------|
-| `node` | Node.js with package.json |
+| Type     | Description                         |
+| -------- | ----------------------------------- |
+| `node`   | Node.js with package.json           |
 | `python` | Python with pyproject.toml/setup.py |
-| `java` | Java with pom.xml |
-| `ruby` | Ruby with version.rb |
-| `go` | Go with CHANGELOG.md |
-| `simple` | Generic with version.txt |
+| `java`   | Java with pom.xml                   |
+| `ruby`   | Ruby with version.rb                |
+| `go`     | Go with CHANGELOG.md                |
+| `simple` | Generic with version.txt            |
 
 ## Conventional Commits
 
 The module uses conventional commit prefixes to determine version bumps:
 
-| Prefix | Version Bump | Example |
-|--------|--------------|---------|
-| `fix:` | Patch (0.0.x) | `fix: resolve null pointer` |
-| `feat:` | Minor (0.x.0) | `feat: add dark mode` |
-| `feat!:` or `BREAKING CHANGE:` | Major (x.0.0) | `feat!: redesign API` |
+| Prefix                         | Version Bump  | Example                     |
+| ------------------------------ | ------------- | --------------------------- |
+| `fix:`                         | Patch (0.0.x) | `fix: resolve null pointer` |
+| `feat:`                        | Minor (0.x.0) | `feat: add dark mode`       |
+| `feat!:` or `BREAKING CHANGE:` | Major (x.0.0) | `feat!: redesign API`       |
 
 ## Labels
 
-| Label | Purpose |
-|-------|---------|
-| `autorelease: pending` | Applied to open Release PRs |
-| `autorelease: tagged` | Applied after release is created |
+| Label                      | Purpose                            |
+| -------------------------- | ---------------------------------- |
+| `autorelease: pending`     | Applied to open Release PRs        |
+| `autorelease: tagged`      | Applied after release is created   |
 | `release-please:force-run` | Trigger manual release PR creation |
 
 ## Example Workflow
