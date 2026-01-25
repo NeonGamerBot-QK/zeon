@@ -79,8 +79,10 @@ Tests for interacting with Amp tools:
 ### Generate a Function
 
 ```javascript
-const prompt = 'Write a function that validates email addresses in JavaScript';
-const result = execSync(`echo "${prompt}" | amp -m free`, { encoding: 'utf-8' });
+const prompt = "Write a function that validates email addresses in JavaScript";
+const result = execSync(`echo "${prompt}" | amp -m free`, {
+  encoding: "utf-8",
+});
 // result contains generated function code
 ```
 
@@ -92,14 +94,16 @@ const testPrompt = `Write Jest tests for a sum function that:
 - handles null values
 - handles undefined values`;
 
-const testCode = execSync(`echo "${testPrompt}" | amp -m free`, { encoding: 'utf-8' });
+const testCode = execSync(`echo "${testPrompt}" | amp -m free`, {
+  encoding: "utf-8",
+});
 ```
 
 ### Save Generated Code
 
 ```javascript
-const code = execSync(`echo "${prompt}" | amp -m free`, { encoding: 'utf-8' });
-fs.writeFileSync('generated-function.js', code, 'utf-8');
+const code = execSync(`echo "${prompt}" | amp -m free`, { encoding: "utf-8" });
+fs.writeFileSync("generated-function.js", code, "utf-8");
 ```
 
 ## Amp CLI Commands Used
@@ -131,6 +135,7 @@ Displays detailed information about a specific tool.
 ## Timeout Considerations
 
 Amp CLI requests may take time depending on:
+
 - Network latency
 - Prompt complexity
 - AI model processing time
@@ -156,7 +161,7 @@ Then provide your Amp API key from https://ampcode.com/settings
 Enable verbose logging:
 
 ```javascript
-execSync(cmd, { stdio: 'inherit' }); // Shows all output
+execSync(cmd, { stdio: "inherit" }); // Shows all output
 ```
 
 Check logs:
