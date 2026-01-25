@@ -1414,6 +1414,7 @@ I require pull request titles to follow the [Conventional Commits specification]
     "./zeon_canvas",
     "./AiCodeReview/index.js",
     "./DCO",
+    "./ReleasePlease",
     // "./SimilarCode",
     // './autoApproval/index',
     "./run_automations_for_vencord_css.js",
