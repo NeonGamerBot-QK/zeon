@@ -36,14 +36,17 @@ const ENABLED_REPOS = [
  * Creates a GitHub client for release-please from Probot context
  *
  * @param {object} ctx - Probot context
+ * @param {object} app - Probot app instance for getting token
  * @returns {Promise<GitHub>} - Release-please GitHub client
  */
-async function createReleasePleaseGitHub(ctx) {
+async function createReleasePleaseGitHub(ctx, app) {
   const owner = ctx.payload.repository.owner.login;
   const repo = ctx.payload.repository.name;
+  const installationId = ctx.payload.installation.id;
 
-  // Get the installation token from Probot's octokit
-  const { token } = await ctx.octokit.auth({ type: "installation" });
+  // Get the installation access token
+  const octokit = await app.auth(installationId);
+  const { token } = await octokit.auth({ type: "installation" });
 
   return GitHub.create({
     owner,
@@ -130,7 +133,7 @@ async function createReleasePRs(ctx, app) {
   app.log.info(`[ReleasePlease] Creating release PRs for ${owner}/${repo}`);
 
   try {
-    const github = await createReleasePleaseGitHub(ctx);
+    const github = await createReleasePleaseGitHub(ctx, app);
     const config = await loadRepoConfig(ctx);
 
     // Check if repo has manifest files
@@ -203,7 +206,7 @@ async function createReleases(ctx, app) {
   app.log.info(`[ReleasePlease] Creating releases for ${owner}/${repo}`);
 
   try {
-    const github = await createReleasePleaseGitHub(ctx);
+    const github = await createReleasePleaseGitHub(ctx, app);
     const config = await loadRepoConfig(ctx);
 
     // Check if repo has manifest files
