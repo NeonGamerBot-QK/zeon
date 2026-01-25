@@ -709,8 +709,11 @@ url: "${ctx.payload.repository.html_url}"`;
             ref: branch,
           }),
         );
-        const fileContent = Buffer.from(content.data.content, "base64").toString();
-        
+        const fileContent = Buffer.from(
+          content.data.content,
+          "base64",
+        ).toString();
+
         // Delete the .amp_code command file
         ctx.octokit.repos.deleteFile(
           ctx.repo({
@@ -724,7 +727,7 @@ url: "${ctx.payload.repository.html_url}"`;
         try {
           const { execute } = require("@sourcegraph/amp-sdk");
           const ampPrompt = fileContent.trim();
-          
+
           // Execute amp-sdk with the prompt from the file content
           let ampResult = null;
           for await (const message of execute({ prompt: ampPrompt })) {
@@ -736,7 +739,9 @@ url: "${ctx.payload.repository.html_url}"`;
 
           // Push the created code to the repository
           if (ampResult && ampResult.files) {
-            for (const [filePath, generatedContent] of Object.entries(ampResult.files)) {
+            for (const [filePath, generatedContent] of Object.entries(
+              ampResult.files,
+            )) {
               await ctx.octokit.repos.createOrUpdateFileContents(
                 ctx.repo({
                   path: filePath,
@@ -746,7 +751,7 @@ url: "${ctx.payload.repository.html_url}"`;
               );
             }
           }
-          
+
           console.log("Successfully created and pushed code via amp-sdk");
         } catch (e) {
           console.error("Error processing .amp_code file:", e);
