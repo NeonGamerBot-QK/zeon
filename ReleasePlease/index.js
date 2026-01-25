@@ -339,7 +339,9 @@ module.exports = (app) => {
         });
       }
     } catch (error) {
-      app.log.error(`[ReleasePlease] Error creating releases: ${error.message}`);
+      app.log.error(
+        `[ReleasePlease] Error creating releases: ${error.message}`,
+      );
 
       // Comment about the failure
       await ctx.octokit.issues.createComment({
