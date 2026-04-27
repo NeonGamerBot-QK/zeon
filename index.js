@@ -1429,6 +1429,37 @@ I require pull request titles to follow the [Conventional Commits specification]
 
       if (fullPr.draft || fullPr.state !== "open") continue;
 
+      // Dedupe: a single PR head SHA can fire multiple check_suite.completed
+      // events (matrix CI, re-runs, multiple workflows). Skip if zeon already
+      // reviewed this exact commit, otherwise we'd spam REQUEST_CHANGES /
+      // APPROVE reviews on every successful check.
+      try {
+        const { data: existingReviews } =
+          await ctx.octokit.pulls.listReviews({
+            owner: repository.owner.login,
+            repo: repository.name,
+            pull_number: pr.number,
+            per_page: 100,
+          });
+        const alreadyReviewed = existingReviews.some(
+          (r) =>
+            r.user &&
+            r.user.login === "zeon-neon" &&
+            r.commit_id === fullPr.head.sha &&
+            (r.state === "CHANGES_REQUESTED" || r.state === "APPROVED"),
+        );
+        if (alreadyReviewed) {
+          app.log.info(
+            `Skipping PR #${pr.number} — zeon already reviewed ${fullPr.head.sha}`,
+          );
+          continue;
+        }
+      } catch (e) {
+        app.log.error(
+          `Failed to list reviews for PR #${pr.number}: ${e.message}`,
+        );
+      }
+
       const doNotMergeTag = "[do-not-automerge]";
       if (
         fullPr.title.toLowerCase().includes(doNotMergeTag) ||
