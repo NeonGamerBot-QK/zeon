@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm start          # Start the Probot app
-npm test           # Run Jest tests
-npm test -- --coverage  # Run tests with coverage
-npx standard       # Lint with StandardJS
+npm start              # Start the Probot app
+npm test               # Run Jest tests
+npm test -- --coverage # Run tests with coverage
+npx standard           # Lint with StandardJS
 ```
 
 For local webhook development, set `WEBHOOK_PROXY_URL` to a Smee.io channel URL and run `npm start`.
@@ -25,20 +25,20 @@ For local webhook development, set `WEBHOOK_PROXY_URL` to a Smee.io channel URL 
 
 Each directory is a self-contained module:
 
-| Module | What it does |
-|---|---|
-| `AiCodeReview/` | GPT-powered code review; calls OpenAI API on PR patches |
-| `autoApproval/` | Auto-approves/merges PRs based on `.github/autoapproval.yml` config |
-| `DCO/` | Validates Developer Certificate of Origin on commits |
-| `DeletePRBranch/` | Deletes head branches after PR merge |
-| `DupIssue/` | Detects duplicate issues using fuzzy search (`fuse.js`) |
-| `Linter/` | Runs linting checks on PRs |
-| `MistakenPR/` | Blocks PRs to specific repos |
-| `pull/` | Keeps forks in sync with upstream; has its own `package.json` and tests |
-| `ReleasePlease/` | Conventional commits → automated releases and CHANGELOG |
-| `SimilarCode/` | Detects duplicated code patterns in PRs |
-| `Stale/` | Marks and closes stale issues on a schedule |
-| `weekly-digest/` | Posts weekly activity summaries; has its own `package.json` and tests |
+| Module            | What it does                                                            |
+| ----------------- | ----------------------------------------------------------------------- |
+| `AiCodeReview/`   | GPT-powered code review; calls OpenAI API on PR patches                 |
+| `autoApproval/`   | Auto-approves/merges PRs based on `.github/autoapproval.yml` config     |
+| `DCO/`            | Validates Developer Certificate of Origin on commits                    |
+| `DeletePRBranch/` | Deletes head branches after PR merge                                    |
+| `DupIssue/`       | Detects duplicate issues using fuzzy search (`fuse.js`)                 |
+| `Linter/`         | Runs linting checks on PRs                                              |
+| `MistakenPR/`     | Blocks PRs to specific repos                                            |
+| `pull/`           | Keeps forks in sync with upstream; has its own `package.json` and tests |
+| `ReleasePlease/`  | Conventional commits → automated releases and CHANGELOG                 |
+| `SimilarCode/`    | Detects duplicated code patterns in PRs                                 |
+| `Stale/`          | Marks and closes stale issues on a schedule                             |
+| `weekly-digest/`  | Posts weekly activity summaries; has its own `package.json` and tests   |
 
 `pull/` and `weekly-digest/` are effectively embedded sub-apps with their own dependency trees, test suites, and `index.js` entry points.
 
