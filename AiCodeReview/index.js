@@ -91,10 +91,48 @@ module.exports = async (app) => {
     }
   };
 
+  // Conventional Commits spec: https://www.conventionalcommits.org/en/v1.0.0/
+  // Matches: <type>[optional scope][!]: <description>
+  // Allowed types follow the Angular convention used widely in the ecosystem.
+  const CONVENTIONAL_COMMIT_REGEX =
+    /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w\-./ ]+\))?!?: .+/;
+
+  // Repo (case-insensitive) where we additionally enforce conventional commit
+  // PR titles. Per request: only "myBot".
+  const CONVENTIONAL_COMMIT_REPOS = ["mybot"];
+
   app.on(
-    ["pull_request.opened", "pull_request.synchronize"],
+    ["pull_request.opened", "pull_request.edited", "pull_request.synchronize"],
     async (context) => {
       const repo = context.repo();
+      const pull_request = context.payload.pull_request;
+
+      // Conventional commit title enforcement for designated repos. Runs
+      // independently of the AI review config so it always guards the PR.
+      if (
+        CONVENTIONAL_COMMIT_REPOS.includes(repo.repo.toLowerCase()) &&
+        pull_request &&
+        pull_request.state !== "closed"
+      ) {
+        const title = pull_request.title || "";
+        if (!CONVENTIONAL_COMMIT_REGEX.test(title)) {
+          try {
+            await context.octokit.pulls.createReview({
+              owner: repo.owner,
+              repo: repo.repo,
+              pull_number: context.pullRequest().pull_number,
+              event: "REQUEST_CHANGES",
+              body:
+                `❌ This PR title does not follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.\n\n` +
+                `Please reformat the title as \`<type>(optional scope): <description>\`, for example: \`feat(api): add new endpoint\`.\n\n` +
+                `Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.`,
+            });
+          } catch (e) {
+            console.error("failed to request changes for PR title", e);
+          }
+        }
+      }
+
       const config = await context.config("zeon/pr.yml");
       if (!config) return;
       if (!config["ai-review-code"]) {
@@ -107,8 +145,6 @@ module.exports = async (app) => {
         console.log("Chat initialized failed");
         return "no chat";
       }
-
-      const pull_request = context.payload.pull_request;
 
       if (pull_request.state === "closed" || pull_request.locked) {
         console.log("invalid event payload");
