@@ -2,221 +2,397 @@
 
 // import { Chat } from './chat.js';
 
-const OPENAI_API_KEY = "OPENAI_API_KEY";
+const OPENAI_API_KEY = 'OPENAI_API_KEY'
 const MAX_PATCH_COUNT = process.env.MAX_PATCH_LENGTH
   ? +process.env.MAX_PATCH_LENGTH
-  : Infinity;
+  : Infinity
 /**
  *
  * @param {Probot} app
  */
 module.exports = async (app) => {
-  const { ChatGPTAPI } = await import("chatgpt");
+  const { ChatGPTAPI } = await import('chatgpt')
   class Chat {
-    constructor(apikey) {
+    constructor (apikey) {
       this.chatAPI = new ChatGPTAPI({
         apiKey: apikey,
         //      apiBaseUrl:
         //      process.env.OPENAI_API_ENDPOINT || "https://api.openai.com/v1",
         completionParams: {
-          model: process.env.MODEL || "gpt-3.5-turbo",
+          model: process.env.MODEL || 'gpt-3.5-turbo',
           temperature: +(process.env.temperature || 0) || 1,
           top_p: +(process.env.top_p || 0) || 1,
           max_tokens: process.env.max_tokens
             ? +process.env.max_tokens
-            : undefined,
-        },
-      });
+            : undefined
+        }
+      })
     }
 
     generatePrompt = (patch) => {
       const answerLanguage = process.env.LANGUAGE
         ? `Answer me in ${process.env.LANGUAGE},`
-        : "";
+        : ''
 
       const prompt =
         process.env.PROMPT ||
-        "Below is a code patch, please help me do a brief code review on it. Any bug risks and/or improvement suggestions are welcome:";
+        'Below is a code patch, please help me do a brief code review on it. Any bug risks and/or improvement suggestions are welcome:'
 
       return `${prompt}, ${answerLanguage}:
       ${patch}
-      `;
-    };
+      `
+    }
 
     codeReview = async (patch) => {
       if (!patch) {
-        return "";
+        return ''
       }
 
-      console.time("code-review tcost");
-      const prompt = this.generatePrompt(patch);
+      console.time('code-review tcost')
+      const prompt = this.generatePrompt(patch)
 
-      const res = await this.chatAPI.sendMessage(prompt);
+      const res = await this.chatAPI.sendMessage(prompt)
 
-      console.timeEnd("code-review cost");
-      return res.text;
-    };
+      console.timeEnd('code-review cost')
+      return res.text
+    }
   }
 
   const loadChat = async (context) => {
     if (process.env.OPENAI_API_KEY) {
-      return new Chat(process.env.OPENAI_API_KEY);
+      return new Chat(process.env.OPENAI_API_KEY)
     }
 
-    const repo = context.repo();
+    const repo = context.repo()
 
     try {
       const { data } = await context.octokit.request(
-        "GET /repos/{owner}/{repo}/actions/variables/{name}",
+        'GET /repos/{owner}/{repo}/actions/variables/{name}',
         {
           owner: repo.owner,
           repo: repo.repo,
-          name: OPENAI_API_KEY,
-        },
-      );
+          name: OPENAI_API_KEY
+        }
+      )
 
       if (!data?.value) {
-        return null;
+        return null
       }
 
-      return new Chat(data.value);
+      return new Chat(data.value)
     } catch {
       await context.octokit.issues.createComment({
         repo: repo.repo,
         owner: repo.owner,
         issue_number: context.pullRequest().pull_number,
-        body: `Seems you are using me but didn't get OPENAI_API_KEY seted in Variables/Secrets for this repo. Maybe @NeonGamerBot-QK should fix me.`,
-      });
-      return null;
+        body: 'Seems you are using me but didn\'t get OPENAI_API_KEY seted in Variables/Secrets for this repo. Maybe @NeonGamerBot-QK should fix me.'
+      })
+      return null
     }
-  };
+  }
 
   // Conventional Commits spec: https://www.conventionalcommits.org/en/v1.0.0/
   // Matches: <type>[optional scope][!]: <description>
   // Allowed types follow the Angular convention used widely in the ecosystem.
   const CONVENTIONAL_COMMIT_REGEX =
-    /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w\-./ ]+\))?!?: .+/;
+    /^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([\w\-./ ]+\))?!?: .+/
 
   // Repo (case-insensitive) where we additionally enforce conventional commit
   // PR titles. Per request: only "myBot".
-  const CONVENTIONAL_COMMIT_REPOS = ["mybot"];
+  const CONVENTIONAL_COMMIT_REPOS = ['mybot']
+
+  // Repos where a merge gate is enforced: blocks merge until all Copilot review
+  // threads are resolved and all status checks have passed.
+  const MERGE_GATE_REPOS = ['mybot']
+  const MERGE_GATE_CONTEXT = 'zeon/merge-gate'
+  const COPILOT_BOT_PATTERN = /copilot/i
+
+  /**
+   * Evaluates Copilot thread resolution and check-run status for a PR, then
+   * writes a commit status that can be used as a required branch-protection
+   * check to gate merging.
+   *
+   * @param {import('@octokit/rest').Octokit} octokit
+   * @param {string} owner
+   * @param {string} repo
+   * @param {number} pullNumber
+   * @param {string} headSha
+   */
+  async function updateMergeGate (octokit, owner, repo, pullNumber, headSha) {
+    let copilotResolved = true
+    let allChecksPassed = true
+    const reasons = []
+
+    // Check Copilot review threads via GraphQL (REST does not expose isResolved)
+    try {
+      const result = await octokit.graphql(
+        `query($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviewThreads(first: 100) {
+                nodes {
+                  isResolved
+                  comments(first: 1) {
+                    nodes {
+                      author { login }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }`,
+        { owner, repo, number: pullNumber }
+      )
+
+      const threads =
+        result.repository.pullRequest.reviewThreads.nodes
+      const unresolved = threads.filter(
+        (t) =>
+          !t.isResolved &&
+          t.comments.nodes.some((c) =>
+            COPILOT_BOT_PATTERN.test(c.author?.login || '')
+          )
+      )
+
+      if (unresolved.length > 0) {
+        copilotResolved = false
+        reasons.push(
+          `${unresolved.length} unresolved Copilot review thread(s)`
+        )
+      }
+    } catch (e) {
+      console.error('merge-gate: failed to fetch review threads', e)
+    }
+
+    // Check all check runs for the head SHA
+    try {
+      const { data: checkRunsData } = await octokit.checks.listForRef({
+        owner,
+        repo,
+        ref: headSha,
+        per_page: 100
+      })
+
+      const failing = checkRunsData.check_runs.filter(
+        (run) =>
+          run.name !== MERGE_GATE_CONTEXT &&
+          (run.status !== 'completed' ||
+            !['success', 'neutral', 'skipped'].includes(run.conclusion))
+      )
+
+      if (failing.length > 0) {
+        allChecksPassed = false
+        reasons.push(
+          `${failing.length} failing/pending check(s): ${failing.map((r) => r.name).join(', ')}`
+        )
+      }
+
+      // Also check legacy commit statuses
+      const { data: statusData } =
+        await octokit.repos.getCombinedStatusForRef({
+          owner,
+          repo,
+          ref: headSha
+        })
+
+      if (
+        statusData.state === 'failure' ||
+        statusData.state === 'pending'
+      ) {
+        allChecksPassed = false
+        reasons.push(`commit status is ${statusData.state}`)
+      }
+    } catch (e) {
+      console.error('merge-gate: failed to fetch check runs', e)
+    }
+
+    const passed = copilotResolved && allChecksPassed
+
+    try {
+      await octokit.repos.createCommitStatus({
+        owner,
+        repo,
+        sha: headSha,
+        state: passed ? 'success' : 'pending',
+        context: MERGE_GATE_CONTEXT,
+        description: passed
+          ? 'All Copilot comments resolved and checks passed'
+          : `Waiting: ${reasons.join('; ')}`,
+        target_url: `https://github.com/${owner}/${repo}/pull/${pullNumber}`
+      })
+    } catch (e) {
+      console.error('merge-gate: failed to set commit status', e)
+    }
+  }
+
+  /**
+   * Extract { pullNumber, headSha } from the webhook payload regardless of
+   * event type (pull_request, check_run, pull_request_review, review_thread).
+   *
+   * @param {object} payload
+   * @returns {{ pullNumber: number, headSha: string } | null}
+   */
+  function extractPRInfo (payload) {
+    if (payload.pull_request) {
+      return {
+        pullNumber: payload.pull_request.number,
+        headSha: payload.pull_request.head.sha
+      }
+    }
+    if (payload.check_run?.pull_requests?.length) {
+      return {
+        pullNumber: payload.check_run.pull_requests[0].number,
+        headSha: payload.check_run.head_sha
+      }
+    }
+    return null
+  }
 
   app.on(
-    ["pull_request.opened", "pull_request.edited", "pull_request.synchronize"],
+    [
+      'pull_request.opened',
+      'pull_request.synchronize',
+      'pull_request.reopened',
+      'pull_request_review.submitted',
+      'pull_request_review.dismissed',
+      'pull_request_review_thread.resolved',
+      'pull_request_review_thread.unresolved',
+      'check_run.completed'
+    ],
     async (context) => {
-      const repo = context.repo();
-      const pull_request = context.payload.pull_request;
+      const repo = context.repo()
+      if (!MERGE_GATE_REPOS.includes(repo.repo.toLowerCase())) return
+
+      const info = extractPRInfo(context.payload)
+      if (!info) return
+
+      await updateMergeGate(
+        context.octokit,
+        repo.owner,
+        repo.repo,
+        info.pullNumber,
+        info.headSha
+      )
+    }
+  )
+
+  app.on(
+    ['pull_request.opened', 'pull_request.edited', 'pull_request.synchronize'],
+    async (context) => {
+      const repo = context.repo()
+      const pull_request = context.payload.pull_request
 
       // Conventional commit title enforcement for designated repos. Runs
       // independently of the AI review config so it always guards the PR.
       if (
         CONVENTIONAL_COMMIT_REPOS.includes(repo.repo.toLowerCase()) &&
         pull_request &&
-        pull_request.state !== "closed"
+        pull_request.state !== 'closed'
       ) {
-        const title = pull_request.title || "";
+        const title = pull_request.title || ''
         if (!CONVENTIONAL_COMMIT_REGEX.test(title)) {
           try {
             await context.octokit.pulls.createReview({
               owner: repo.owner,
               repo: repo.repo,
               pull_number: context.pullRequest().pull_number,
-              event: "REQUEST_CHANGES",
+              event: 'REQUEST_CHANGES',
               body:
-                `❌ This PR title does not follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.\n\n` +
-                `Please reformat the title as \`<type>(optional scope): <description>\`, for example: \`feat(api): add new endpoint\`.\n\n` +
-                `Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.`,
-            });
+                '❌ This PR title does not follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.\n\n' +
+                'Please reformat the title as `<type>(optional scope): <description>`, for example: `feat(api): add new endpoint`.\n\n' +
+                'Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.'
+            })
           } catch (e) {
-            console.error("failed to request changes for PR title", e);
+            console.error('failed to request changes for PR title', e)
           }
         }
       }
 
-      const config = await context.config("zeon/pr.yml");
-      if (!config) return;
-      if (!config["ai-review-code"]) {
-        console.log(`Not enabled`);
-        return;
+      const config = await context.config('zeon/pr.yml')
+      if (!config) return
+      if (!config['ai-review-code']) {
+        console.log('Not enabled')
+        return
       }
-      const chat = await loadChat(context);
+      const chat = await loadChat(context)
 
       if (!chat) {
-        console.log("Chat initialized failed");
-        return "no chat";
+        console.log('Chat initialized failed')
+        return 'no chat'
       }
 
-      if (pull_request.state === "closed" || pull_request.locked) {
-        console.log("invalid event payload");
-        return "invalid event payload";
+      if (pull_request.state === 'closed' || pull_request.locked) {
+        console.log('invalid event payload')
+        return 'invalid event payload'
       }
 
-      const target_label = process.env.TARGET_LABEL;
+      const target_label = process.env.TARGET_LABEL
       if (
         target_label &&
         (!pull_request.labels?.length ||
           pull_request.labels.every((label) => label.name !== target_label))
       ) {
-        console.log("no target label attached");
-        return "no target label attached";
+        console.log('no target label attached')
+        return 'no target label attached'
       }
 
       const data = await context.octokit.repos.compareCommits({
         owner: repo.owner,
         repo: repo.repo,
         base: context.payload.pull_request.base.sha,
-        head: context.payload.pull_request.head.sha,
-      });
+        head: context.payload.pull_request.head.sha
+      })
 
-      let { files: changedFiles, commits } = data.data;
+      let { files: changedFiles, commits } = data.data
 
-      if (context.payload.action === "synchronize" && commits.length >= 2) {
+      if (context.payload.action === 'synchronize' && commits.length >= 2) {
         const {
-          data: { files },
+          data: { files }
         } = await context.octokit.repos.compareCommits({
           owner: repo.owner,
           repo: repo.repo,
           base: commits[commits.length - 2].sha,
-          head: commits[commits.length - 1].sha,
-        });
+          head: commits[commits.length - 1].sha
+        })
 
-        const ignoreList = (process.env.IGNORE || process.env.ignore || "")
-          .split("\n")
-          .filter((v) => v !== "");
+        const ignoreList = (process.env.IGNORE || process.env.ignore || '')
+          .split('\n')
+          .filter((v) => v !== '')
 
-        const filesNames = files?.map((file) => file.filename) || [];
+        const filesNames = files?.map((file) => file.filename) || []
         changedFiles = changedFiles?.filter(
           (file) =>
             filesNames.includes(file.filename) &&
-            !ignoreList.includes(file.filename),
-        );
+            !ignoreList.includes(file.filename)
+        )
       }
 
       if (!changedFiles?.length) {
-        console.log("no change found");
-        return "no change";
+        console.log('no change found')
+        return 'no change'
       }
 
-      console.time("gpt cost");
+      console.time('gpt cost')
 
       for (let i = 0; i < changedFiles.length; i++) {
-        const file = changedFiles[i];
-        const patch = file.patch || "";
+        const file = changedFiles[i]
+        const patch = file.patch || ''
 
-        if (file.status !== "modified" && file.status !== "added") {
-          continue;
+        if (file.status !== 'modified' && file.status !== 'added') {
+          continue
         }
 
         if (!patch || patch.length > MAX_PATCH_COUNT) {
           console.log(
-            `${file.filename} skipped caused by its diff is too large`,
-          );
-          continue;
+            `${file.filename} skipped caused by its diff is too large`
+          )
+          continue
         }
         try {
-          const res = await chat?.codeReview(patch);
+          const res = await chat?.codeReview(patch)
 
-          if (!!res) {
+          if (res) {
             await context.octokit.pulls.createReviewComment({
               repo: repo.repo,
               owner: repo.owner,
@@ -224,21 +400,21 @@ module.exports = async (app) => {
               commit_id: commits[commits.length - 1].sha,
               path: file.filename,
               body: res,
-              position: patch.split("\n").length - 1,
-            });
+              position: patch.split('\n').length - 1
+            })
           }
         } catch (e) {
-          console.error(`review ${file.filename} failed`, e);
+          console.error(`review ${file.filename} failed`, e)
         }
       }
 
-      console.timeEnd("gpt cost");
+      console.timeEnd('gpt cost')
       console.info(
-        "successfully reviewed",
-        context.payload.pull_request.html_url,
-      );
+        'successfully reviewed',
+        context.payload.pull_request.html_url
+      )
 
-      return "success";
-    },
-  );
-};
+      return 'success'
+    }
+  )
+}
