@@ -107,10 +107,10 @@ module.exports = async (app) => {
   const MERGE_GATE_CONTEXT = "zeon/merge-gate";
   const COPILOT_BOT_PATTERN = /copilot/i;
 
-  const CI_WAITING_MARKER = '<!-- zeon:merge-gate:ci-waiting -->'
+  const CI_WAITING_MARKER = "<!-- zeon:merge-gate:ci-waiting -->";
   // Stores the merge method so it can be restored after checks pass.
   // Format: <!-- zeon:merge-gate:automerge-disabled:METHOD -->
-  const AUTO_MERGE_DISABLED_MARKER = '<!-- zeon:merge-gate:automerge-disabled:'
+  const AUTO_MERGE_DISABLED_MARKER = "<!-- zeon:merge-gate:automerge-disabled:";
 
   /**
    * Evaluates Copilot thread resolution and check-run status for a PR, then
@@ -226,44 +226,61 @@ module.exports = async (app) => {
     }
 
     try {
-      const { data: prData } = await octokit.pulls.get({ owner, repo, pull_number: pullNumber })
+      const { data: prData } = await octokit.pulls.get({
+        owner,
+        repo,
+        pull_number: pullNumber,
+      });
       const { data: comments } = await octokit.issues.listComments({
         owner,
         repo,
         issue_number: pullNumber,
-        per_page: 100
-      })
-      const disabledComment = comments.find((c) => c.body?.includes(AUTO_MERGE_DISABLED_MARKER))
+        per_page: 100,
+      });
+      const disabledComment = comments.find((c) =>
+        c.body?.includes(AUTO_MERGE_DISABLED_MARKER),
+      );
 
       if (!passed) {
         // Disable auto-merge so GitHub can't merge while checks are red.
         if (prData.auto_merge) {
-          const method = prData.auto_merge.merge_method.toUpperCase()
+          const method = prData.auto_merge.merge_method.toUpperCase();
           await octokit.graphql(
             `mutation($id: ID!) {
               disablePullRequestAutoMerge(input: { pullRequestId: $id }) {
                 pullRequest { id }
               }
             }`,
-            { id: prData.node_id }
-          )
-          const markerLine = `${AUTO_MERGE_DISABLED_MARKER}${method} -->`
+            { id: prData.node_id },
+          );
+          const markerLine = `${AUTO_MERGE_DISABLED_MARKER}${method} -->`;
           const commentBody =
             `${markerLine}\n` +
-            '🚫 **Auto-merge disabled** — CI checks are failing/pending.\n\n' +
-            'Blocking reasons:\n' +
-            reasons.map((r) => `- ${r}`).join('\n') +
-            '\n\nAuto-merge will be re-enabled automatically once all checks pass.'
+            "🚫 **Auto-merge disabled** — CI checks are failing/pending.\n\n" +
+            "Blocking reasons:\n" +
+            reasons.map((r) => `- ${r}`).join("\n") +
+            "\n\nAuto-merge will be re-enabled automatically once all checks pass.";
           if (disabledComment) {
-            await octokit.issues.updateComment({ owner, repo, comment_id: disabledComment.id, body: commentBody })
+            await octokit.issues.updateComment({
+              owner,
+              repo,
+              comment_id: disabledComment.id,
+              body: commentBody,
+            });
           } else {
-            await octokit.issues.createComment({ owner, repo, issue_number: pullNumber, body: commentBody })
+            await octokit.issues.createComment({
+              owner,
+              repo,
+              issue_number: pullNumber,
+              body: commentBody,
+            });
           }
         } else {
           // Auto-merge not active — just leave a once-per-SHA waiting comment.
           const alreadyCommented = comments.some(
-            (c) => c.body?.includes(CI_WAITING_MARKER) && c.body?.includes(headSha)
-          )
+            (c) =>
+              c.body?.includes(CI_WAITING_MARKER) && c.body?.includes(headSha),
+          );
           if (!alreadyCommented) {
             await octokit.issues.createComment({
               owner,
@@ -272,38 +289,44 @@ module.exports = async (app) => {
               body:
                 `${CI_WAITING_MARKER}\n` +
                 `⏳ **Merge gate is waiting on CI** (commit \`${headSha.slice(0, 7)}\`)\n\n` +
-                'The following checks need to pass before this PR can be merged:\n' +
+                "The following checks need to pass before this PR can be merged:\n" +
                 reasons
-                  .filter((r) => r.toLowerCase().includes('check') || r.toLowerCase().includes('status'))
+                  .filter(
+                    (r) =>
+                      r.toLowerCase().includes("check") ||
+                      r.toLowerCase().includes("status"),
+                  )
                   .map((r) => `- ${r}`)
-                  .join('\n') +
-                `\n\nI'll update the \`${MERGE_GATE_CONTEXT}\` status check as things change.`
-            })
+                  .join("\n") +
+                `\n\nI'll update the \`${MERGE_GATE_CONTEXT}\` status check as things change.`,
+            });
           }
         }
       } else if (disabledComment) {
         // All checks passed — restore auto-merge with the method we stored.
-        const match = disabledComment.body.match(/<!-- zeon:merge-gate:automerge-disabled:(\w+) -->/)
-        const method = match ? match[1] : 'SQUASH'
+        const match = disabledComment.body.match(
+          /<!-- zeon:merge-gate:automerge-disabled:(\w+) -->/,
+        );
+        const method = match ? match[1] : "SQUASH";
         await octokit.graphql(
           `mutation($id: ID!, $method: PullRequestMergeMethod!) {
             enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method }) {
               pullRequest { id }
             }
           }`,
-          { id: prData.node_id, method }
-        )
+          { id: prData.node_id, method },
+        );
         await octokit.issues.updateComment({
           owner,
           repo,
           comment_id: disabledComment.id,
           body:
             `${AUTO_MERGE_DISABLED_MARKER}${method} -->\n` +
-            '✅ **Auto-merge re-enabled** — all checks passed.'
-        })
+            "✅ **Auto-merge re-enabled** — all checks passed.",
+        });
       }
     } catch (e) {
-      console.error('merge-gate: failed to manage auto-merge', e)
+      console.error("merge-gate: failed to manage auto-merge", e);
     }
   }
 
