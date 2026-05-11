@@ -329,28 +329,45 @@ module.exports = async (app) => {
             }
           }
         }
-      } else if (disabledComment) {
-        // All checks passed — restore auto-merge with the method we stored.
-        const match = disabledComment.body.match(
-          /<!-- zeon:merge-gate:automerge-disabled:(\w+) -->/,
+      } else {
+        if (disabledComment) {
+          // All checks passed — restore auto-merge with the method we stored.
+          const match = disabledComment.body.match(
+            /<!-- zeon:merge-gate:automerge-disabled:(\w+) -->/,
+          );
+          const method = match ? match[1] : "SQUASH";
+          await octokit.graphql(
+            `mutation($id: ID!, $method: PullRequestMergeMethod!) {
+              enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method }) {
+                pullRequest { id }
+              }
+            }`,
+            { id: prData.node_id, method },
+          );
+          await octokit.issues.updateComment({
+            owner,
+            repo,
+            comment_id: disabledComment.id,
+            body:
+              `${AUTO_MERGE_DISABLED_MARKER}${method} -->\n` +
+              "✅ **Auto-merge re-enabled** — all checks passed.",
+          });
+        }
+
+        // Update the waiting comment to show everything is green.
+        const existingWaitingComment = comments.find((c) =>
+          c.body?.includes(CI_WAITING_MARKER),
         );
-        const method = match ? match[1] : "SQUASH";
-        await octokit.graphql(
-          `mutation($id: ID!, $method: PullRequestMergeMethod!) {
-            enablePullRequestAutoMerge(input: { pullRequestId: $id, mergeMethod: $method }) {
-              pullRequest { id }
-            }
-          }`,
-          { id: prData.node_id, method },
-        );
-        await octokit.issues.updateComment({
-          owner,
-          repo,
-          comment_id: disabledComment.id,
-          body:
-            `${AUTO_MERGE_DISABLED_MARKER}${method} -->\n` +
-            "✅ **Auto-merge re-enabled** — all checks passed.",
-        });
+        if (existingWaitingComment) {
+          await octokit.issues.updateComment({
+            owner,
+            repo,
+            comment_id: existingWaitingComment.id,
+            body:
+              `${CI_WAITING_MARKER}\n` +
+              "✅ **All clear!** Every check passed and all Copilot threads are resolved. Zeon is starting AI review now.",
+          });
+        }
       }
     } catch (e) {
       console.error("merge-gate: failed to manage auto-merge", e);

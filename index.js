@@ -1404,15 +1404,199 @@ I require pull request titles to follow the [Conventional Commits specification]
       });
     } catch (e) {}
   });
-  // In-memory guard so concurrent check_suite.completed events (matrix CI,
-  // multiple workflows) can't both pass the listReviews dedup check before
-  // either has actually posted a review.
+  // In-memory guard so concurrent events can't both pass the listReviews
+  // dedup check before either has actually posted a review.
   const reviewedPRSHAs = new Set();
 
-  // Auto AI-review + approve/merge for NeonGamerBot-QK/myBot when checks pass
+  /**
+   * Runs all pre-merge gates, then AI-reviews and merges (or requests changes
+   * on) a single PR. Safe to call from multiple event handlers.
+   *
+   * @param {import('@octokit/rest').Octokit} octokit
+   * @param {object} log - Probot logger
+   * @param {object} repository - GitHub repository payload object
+   * @param {object} fullPr - Full PR object from pulls.get
+   */
+  async function reviewAndMaybeMergePR (octokit, log, repository, fullPr) {
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const prNumber = fullPr.number;
+
+    if (fullPr.draft || fullPr.state !== "open") return;
+
+    // Synchronous guard must come before any await so concurrent handlers
+    // can't both pass the dedup check before either posts a review.
+    const reviewKey = `${repository.full_name}#${prNumber}@${fullPr.head.sha}`;
+    if (reviewedPRSHAs.has(reviewKey)) {
+      log.info(`Skipping PR #${prNumber} — concurrent review already in-flight for ${fullPr.head.sha}`);
+      return;
+    }
+    reviewedPRSHAs.add(reviewKey);
+
+    // API-based dedup: survives process restarts where the in-memory set was cleared.
+    try {
+      const { data: existingReviews } = await octokit.pulls.listReviews({
+        owner, repo, pull_number: prNumber, per_page: 100,
+      });
+      const alreadyReviewed = existingReviews.some(
+        (r) =>
+          r.user &&
+          r.user.login === "zeon-neon" &&
+          r.commit_id === fullPr.head.sha &&
+          (r.state === "CHANGES_REQUESTED" || r.state === "APPROVED"),
+      );
+      if (alreadyReviewed) {
+        log.info(`Skipping PR #${prNumber} — zeon already reviewed ${fullPr.head.sha}`);
+        return;
+      }
+    } catch (e) {
+      log.error(`Failed to list reviews for PR #${prNumber}: ${e.message}`);
+    }
+
+    const doNotMergeTag = "[do-not-automerge]";
+    if (
+      fullPr.title.toLowerCase().includes(doNotMergeTag) ||
+      (fullPr.body && fullPr.body.toLowerCase().includes(doNotMergeTag))
+    ) {
+      log.info(`Skipping PR #${prNumber} — [do-not-automerge] tag present`);
+      try {
+        await octokit.issues.createComment({
+          owner, repo, issue_number: prNumber,
+          body: "I'm not merging this one — `[do-not-automerge]` is set.",
+        });
+      } catch (e) {}
+      return;
+    }
+
+    // Verify every CI check has passed — a single check_suite firing with
+    // "success" doesn't mean all checks passed.
+    try {
+      const { data: checkRunsData } = await octokit.checks.listForRef({
+        owner, repo, ref: fullPr.head.sha, per_page: 100,
+      });
+      const failing = checkRunsData.check_runs.filter(
+        (run) =>
+          run.name !== "zeon/merge-gate" &&
+          (run.status !== "completed" ||
+            !["success", "neutral", "skipped"].includes(run.conclusion)),
+      );
+      if (failing.length > 0) {
+        log.info(`Skipping PR #${prNumber} — ${failing.length} failing/pending check(s): ${failing.map((r) => r.name).join(", ")}`);
+        return;
+      }
+    } catch (e) {
+      log.error(`Failed to verify checks for PR #${prNumber}: ${e.message}`);
+      return;
+    }
+
+    // Require Copilot to have reviewed AND all its threads resolved.
+    try {
+      const copilotResult = await octokit.graphql(
+        `query($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviewThreads(first: 100) {
+                nodes {
+                  isResolved
+                  comments(first: 1) {
+                    nodes { author { login } }
+                  }
+                }
+              }
+            }
+          }
+        }`,
+        { owner, repo, number: prNumber },
+      );
+      const threads = copilotResult.repository.pullRequest.reviewThreads.nodes;
+      const copilotThreads = threads.filter((t) =>
+        t.comments.nodes.some((c) => /copilot/i.test(c.author?.login || "")),
+      );
+      if (copilotThreads.length === 0) {
+        log.info(`Skipping PR #${prNumber} — Copilot has not reviewed yet`);
+        return;
+      }
+      const unresolved = copilotThreads.filter((t) => !t.isResolved);
+      if (unresolved.length > 0) {
+        log.info(`Skipping PR #${prNumber} — ${unresolved.length} unresolved Copilot thread(s)`);
+        return;
+      }
+    } catch (e) {
+      log.error(`Failed to check Copilot threads for PR #${prNumber}: ${e.message}`);
+      return;
+    }
+
+    // Fetch the diff/patch for AI review.
+    let diff;
+    try {
+      ({ data: diff } = await octokit.rest.pulls.get({
+        owner, repo, pull_number: prNumber, mediaType: { format: "patch" },
+      }));
+    } catch (e) {
+      log.error(`Failed to fetch diff for PR #${prNumber}: ${e.message}`);
+      return;
+    }
+
+    // Run AI review.
+    let out;
+    try {
+      const chatCompletion = await ai_client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "user", content: String(diff) },
+          {
+            role: "user",
+            content:
+              'Review this pull request diff. Decide if it should be merged into the main branch. Respond ONLY in JSON with two properties: "verdict" (either "accept" or "decline") and "summary" (your markdown explanation). No code block.',
+          },
+        ],
+      });
+      out = JSON.parse(chatCompletion.choices[0].message.content);
+    } catch (e) {
+      log.error(`AI review failed for PR #${prNumber}: ${e.message}`);
+      return;
+    }
+
+    const isAccepted = out.verdict === "accept";
+
+    try {
+      await octokit.issues.createComment({
+        owner, repo, issue_number: prNumber,
+        body:
+          out.summary +
+          `\n\n<details><summary>Disclosure</summary><p>This review was generated by zeon AI. Verdict: <strong>${out.verdict}</strong></p></details>`,
+      });
+    } catch (e) {
+      log.error(`Failed to post AI comment on PR #${prNumber}: ${e.message}`);
+    }
+
+    if (isAccepted) {
+      try {
+        await octokit.pulls.createReview({
+          owner, repo, pull_number: prNumber, event: "APPROVE",
+          body: "Approved by zeon AI review.",
+        });
+        await octokit.pulls.merge({
+          owner, repo, pull_number: prNumber, merge_method: "squash",
+        });
+      } catch (e) {
+        log.error(`Failed to approve/merge PR #${prNumber}: ${e.message}`);
+      }
+    } else {
+      try {
+        await octokit.pulls.createReview({
+          owner, repo, pull_number: prNumber, event: "REQUEST_CHANGES",
+          body: out.summary,
+        });
+      } catch (e) {
+        log.error(`Failed to request changes on PR #${prNumber}: ${e.message}`);
+      }
+    }
+  }
+
+  // Trigger AI review when a check suite completes successfully.
   app.on(["check_suite.completed"], async (ctx) => {
     const { repository, check_suite } = ctx.payload;
-
     if (repository.full_name !== "NeonGamerBot-QK/myBot") return;
     if (check_suite.conclusion !== "success") return;
 
@@ -1431,231 +1615,43 @@ I require pull request titles to follow the [Conventional Commits specification]
         app.log.error(`Failed to fetch PR #${pr.number}: ${e.message}`);
         continue;
       }
+      await reviewAndMaybeMergePR(ctx.octokit, app.log, repository, fullPr);
+    }
+  });
 
-      if (fullPr.draft || fullPr.state !== "open") continue;
+  // Also trigger when zeon/merge-gate flips to success. This is the event
+  // fired when Copilot threads are resolved — there's no check_suite event
+  // for that transition, so without this handler the PR would never get picked up.
+  app.on(["status"], async (ctx) => {
+    const { repository, state, context: statusContext, sha } = ctx.payload;
+    if (repository.full_name !== "NeonGamerBot-QK/myBot") return;
+    if (statusContext !== "zeon/merge-gate" || state !== "success") return;
 
-      // Synchronous in-memory guard must come before any await so concurrent
-      // event handlers can't both pass the check before either posts a review.
-      const reviewKey = `${repository.full_name}#${pr.number}@${fullPr.head.sha}`;
-      if (reviewedPRSHAs.has(reviewKey)) {
-        app.log.info(
-          `Skipping PR #${pr.number} — concurrent review already in-flight for ${fullPr.head.sha}`,
-        );
-        continue;
-      }
-      reviewedPRSHAs.add(reviewKey);
+    let prs;
+    try {
+      ({ data: prs } = await ctx.octokit.repos.listPullRequestsAssociatedWithCommit({
+        owner: repository.owner.login,
+        repo: repository.name,
+        commit_sha: sha,
+      }));
+    } catch (e) {
+      app.log.error(`Failed to find PRs for SHA ${sha}: ${e.message}`);
+      return;
+    }
 
-      // API-based dedup: catches re-runs and restarts across process restarts
-      // where the in-memory set was cleared.
+    for (const pr of prs.filter((p) => p.state === "open" && !p.draft)) {
+      let fullPr;
       try {
-        const { data: existingReviews } =
-          await ctx.octokit.pulls.listReviews({
-            owner: repository.owner.login,
-            repo: repository.name,
-            pull_number: pr.number,
-            per_page: 100,
-          });
-        const alreadyReviewed = existingReviews.some(
-          (r) =>
-            r.user &&
-            r.user.login === "zeon-neon" &&
-            r.commit_id === fullPr.head.sha &&
-            (r.state === "CHANGES_REQUESTED" || r.state === "APPROVED"),
-        );
-        if (alreadyReviewed) {
-          app.log.info(
-            `Skipping PR #${pr.number} — zeon already reviewed ${fullPr.head.sha}`,
-          );
-          continue;
-        }
-      } catch (e) {
-        app.log.error(
-          `Failed to list reviews for PR #${pr.number}: ${e.message}`,
-        );
-      }
-
-      const doNotMergeTag = "[do-not-automerge]";
-      if (
-        fullPr.title.toLowerCase().includes(doNotMergeTag) ||
-        (fullPr.body && fullPr.body.toLowerCase().includes(doNotMergeTag))
-      ) {
-        app.log.info(
-          `Skipping PR #${pr.number} — [do-not-automerge] tag present`,
-        );
-        await ctx.octokit.issues.createComment({
-          owner: repository.owner.login,
-          repo: repository.name,
-          issue_number: pr.number,
-          body: "I'm not merging this one — `[do-not-automerge]` is set.",
-        });
-        continue;
-      }
-
-      // Verify all CI checks have passed before proceeding — a single
-      // check_suite firing with "success" doesn't mean every check passed.
-      try {
-        const { data: checkRunsData } = await ctx.octokit.checks.listForRef({
-          owner: repository.owner.login,
-          repo: repository.name,
-          ref: fullPr.head.sha,
-          per_page: 100,
-        });
-        const failing = checkRunsData.check_runs.filter(
-          (run) =>
-            run.name !== "zeon/merge-gate" &&
-            (run.status !== "completed" ||
-              !["success", "neutral", "skipped"].includes(run.conclusion)),
-        );
-        if (failing.length > 0) {
-          app.log.info(
-            `Skipping PR #${pr.number} — ${failing.length} failing/pending check(s): ${failing.map((r) => r.name).join(", ")}`,
-          );
-          continue;
-        }
-      } catch (e) {
-        app.log.error(
-          `Failed to verify checks for PR #${pr.number}: ${e.message}`,
-        );
-        continue;
-      }
-
-      // Require Copilot to have reviewed AND all its threads resolved
-      try {
-        const copilotResult = await ctx.octokit.graphql(
-          `query($owner: String!, $repo: String!, $number: Int!) {
-            repository(owner: $owner, name: $repo) {
-              pullRequest(number: $number) {
-                reviewThreads(first: 100) {
-                  nodes {
-                    isResolved
-                    comments(first: 1) {
-                      nodes { author { login } }
-                    }
-                  }
-                }
-              }
-            }
-          }`,
-          {
-            owner: repository.owner.login,
-            repo: repository.name,
-            number: pr.number,
-          },
-        );
-        const threads =
-          copilotResult.repository.pullRequest.reviewThreads.nodes;
-        const copilotThreads = threads.filter((t) =>
-          t.comments.nodes.some((c) => /copilot/i.test(c.author?.login || "")),
-        );
-        if (copilotThreads.length === 0) {
-          app.log.info(
-            `Skipping PR #${pr.number} — Copilot has not reviewed yet`,
-          );
-          continue;
-        }
-        const unresolved = copilotThreads.filter((t) => !t.isResolved);
-        if (unresolved.length > 0) {
-          app.log.info(
-            `Skipping PR #${pr.number} — ${unresolved.length} unresolved Copilot thread(s)`,
-          );
-          continue;
-        }
-      } catch (e) {
-        app.log.error(
-          `Failed to check Copilot threads for PR #${pr.number}: ${e.message}`,
-        );
-        continue;
-      }
-
-      // Fetch the diff/patch for AI review
-      let diff;
-      try {
-        ({ data: diff } = await ctx.octokit.rest.pulls.get({
+        ({ data: fullPr } = await ctx.octokit.pulls.get({
           owner: repository.owner.login,
           repo: repository.name,
           pull_number: pr.number,
-          mediaType: { format: "patch" },
         }));
       } catch (e) {
-        app.log.error(
-          `Failed to fetch diff for PR #${pr.number}: ${e.message}`,
-        );
+        app.log.error(`Failed to fetch PR #${pr.number}: ${e.message}`);
         continue;
       }
-
-      // Run AI review
-      let out;
-      try {
-        const chatCompletion = await ai_client.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "user", content: String(diff) },
-            {
-              role: "user",
-              content:
-                'Review this pull request diff. Decide if it should be merged into the main branch. Respond ONLY in JSON with two properties: "verdict" (either "accept" or "decline") and "summary" (your markdown explanation). No code block.',
-            },
-          ],
-        });
-        out = JSON.parse(chatCompletion.choices[0].message.content);
-      } catch (e) {
-        app.log.error(`AI review failed for PR #${pr.number}: ${e.message}`);
-        continue;
-      }
-
-      const isAccepted = out.verdict === "accept";
-
-      // Post the AI summary as a comment
-      try {
-        await ctx.octokit.issues.createComment({
-          owner: repository.owner.login,
-          repo: repository.name,
-          issue_number: pr.number,
-          body:
-            out.summary +
-            `\n\n<details><summary>Disclosure</summary><p>This review was generated by zeon AI. Verdict: <strong>${out.verdict}</strong></p></details>`,
-        });
-      } catch (e) {
-        app.log.error(
-          `Failed to post comment on PR #${pr.number}: ${e.message}`,
-        );
-      }
-
-      if (isAccepted) {
-        try {
-          await ctx.octokit.pulls.createReview({
-            owner: repository.owner.login,
-            repo: repository.name,
-            pull_number: pr.number,
-            event: "APPROVE",
-            body: "Approved by zeon AI review.",
-          });
-          await ctx.octokit.pulls.merge({
-            owner: repository.owner.login,
-            repo: repository.name,
-            pull_number: pr.number,
-            merge_method: "squash",
-          });
-        } catch (e) {
-          app.log.error(
-            `Failed to approve/merge PR #${pr.number}: ${e.message}`,
-          );
-        }
-      } else {
-        try {
-          await ctx.octokit.pulls.createReview({
-            owner: repository.owner.login,
-            repo: repository.name,
-            pull_number: pr.number,
-            event: "REQUEST_CHANGES",
-            body: out.summary,
-          });
-        } catch (e) {
-          app.log.error(
-            `Failed to request changes on PR #${pr.number}: ${e.message}`,
-          );
-        }
-      }
+      await reviewAndMaybeMergePR(ctx.octokit, app.log, repository, fullPr);
     }
   });
 
