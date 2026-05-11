@@ -1491,6 +1491,82 @@ I require pull request titles to follow the [Conventional Commits specification]
         continue;
       }
 
+      // Verify all CI checks have passed before proceeding — a single
+      // check_suite firing with "success" doesn't mean every check passed.
+      try {
+        const { data: checkRunsData } = await ctx.octokit.checks.listForRef({
+          owner: repository.owner.login,
+          repo: repository.name,
+          ref: fullPr.head.sha,
+          per_page: 100,
+        });
+        const failing = checkRunsData.check_runs.filter(
+          (run) =>
+            run.name !== "zeon/merge-gate" &&
+            (run.status !== "completed" ||
+              !["success", "neutral", "skipped"].includes(run.conclusion)),
+        );
+        if (failing.length > 0) {
+          app.log.info(
+            `Skipping PR #${pr.number} — ${failing.length} failing/pending check(s): ${failing.map((r) => r.name).join(", ")}`,
+          );
+          continue;
+        }
+      } catch (e) {
+        app.log.error(
+          `Failed to verify checks for PR #${pr.number}: ${e.message}`,
+        );
+        continue;
+      }
+
+      // Require Copilot to have reviewed AND all its threads resolved
+      try {
+        const copilotResult = await ctx.octokit.graphql(
+          `query($owner: String!, $repo: String!, $number: Int!) {
+            repository(owner: $owner, name: $repo) {
+              pullRequest(number: $number) {
+                reviewThreads(first: 100) {
+                  nodes {
+                    isResolved
+                    comments(first: 1) {
+                      nodes { author { login } }
+                    }
+                  }
+                }
+              }
+            }
+          }`,
+          {
+            owner: repository.owner.login,
+            repo: repository.name,
+            number: pr.number,
+          },
+        );
+        const threads =
+          copilotResult.repository.pullRequest.reviewThreads.nodes;
+        const copilotThreads = threads.filter((t) =>
+          t.comments.nodes.some((c) => /copilot/i.test(c.author?.login || "")),
+        );
+        if (copilotThreads.length === 0) {
+          app.log.info(
+            `Skipping PR #${pr.number} — Copilot has not reviewed yet`,
+          );
+          continue;
+        }
+        const unresolved = copilotThreads.filter((t) => !t.isResolved);
+        if (unresolved.length > 0) {
+          app.log.info(
+            `Skipping PR #${pr.number} — ${unresolved.length} unresolved Copilot thread(s)`,
+          );
+          continue;
+        }
+      } catch (e) {
+        app.log.error(
+          `Failed to check Copilot threads for PR #${pr.number}: ${e.message}`,
+        );
+        continue;
+      }
+
       // Fetch the diff/patch for AI review
       let diff;
       try {
