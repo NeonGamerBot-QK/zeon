@@ -1747,7 +1747,8 @@ I require pull request titles to follow the [Conventional Commits specification]
           },
         ],
       });
-      const aiLabels = JSON.parse(completion.choices[0].message.content);
+      const raw = completion.choices[0].message.content.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      const aiLabels = JSON.parse(raw);
       for (const label of aiLabels.slice(0, 3)) {
         const name = String(label).toLowerCase().trim().slice(0, 50);
         if (name && !labelsToAdd.includes(name)) {
