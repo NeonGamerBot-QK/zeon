@@ -1819,40 +1819,6 @@ I require pull request titles to follow the [Conventional Commits specification]
       app.log.error(`!zeon_review: CI check failed for PR #${issue.number}: ${e.message}`);
     }
 
-    // Check Copilot threads.
-    try {
-      const copilotResult = await ctx.octokit.graphql(
-        `query($owner: String!, $repo: String!, $number: Int!) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $number) {
-              reviewThreads(first: 100) {
-                nodes {
-                  isResolved
-                  comments(first: 1) {
-                    nodes { author { login } }
-                  }
-                }
-              }
-            }
-          }
-        }`,
-        { owner, repo, number: issue.number },
-      );
-      const threads = copilotResult.repository.pullRequest.reviewThreads.nodes;
-      const copilotThreads = threads.filter((t) =>
-        t.comments.nodes.some((c) => /copilot/i.test(c.author?.login || "")),
-      );
-      if (copilotThreads.length === 0) {
-        blocking.push("Copilot has not reviewed yet");
-      } else {
-        const unresolved = copilotThreads.filter((t) => !t.isResolved);
-        if (unresolved.length > 0) {
-          blocking.push(`${unresolved.length} unresolved Copilot thread(s)`);
-        }
-      }
-    } catch (e) {
-      app.log.error(`!zeon_review: Copilot check failed for PR #${issue.number}: ${e.message}`);
-    }
 
     if (blocking.length > 0) {
       await ctx.octokit.issues.createComment({
@@ -1866,7 +1832,7 @@ I require pull request titles to follow the [Conventional Commits specification]
 
     await ctx.octokit.issues.createComment({
       owner, repo, issue_number: issue.number,
-      body: "🚀 All gates passed — starting AI review now.",
+      body: "🚀 CI is green — starting AI review now.",
     });
 
     // Clear the in-memory dedup key so a manual !zeon_review always gets a fresh review.
