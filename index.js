@@ -1404,6 +1404,11 @@ I require pull request titles to follow the [Conventional Commits specification]
       });
     } catch (e) {}
   });
+  // In-memory guard so concurrent check_suite.completed events (matrix CI,
+  // multiple workflows) can't both pass the listReviews dedup check before
+  // either has actually posted a review.
+  const reviewedPRSHAs = new Set();
+
   // Auto AI-review + approve/merge for NeonGamerBot-QK/myBot when checks pass
   app.on(["check_suite.completed"], async (ctx) => {
     const { repository, check_suite } = ctx.payload;
@@ -1429,10 +1434,19 @@ I require pull request titles to follow the [Conventional Commits specification]
 
       if (fullPr.draft || fullPr.state !== "open") continue;
 
-      // Dedupe: a single PR head SHA can fire multiple check_suite.completed
-      // events (matrix CI, re-runs, multiple workflows). Skip if zeon already
-      // reviewed this exact commit, otherwise we'd spam REQUEST_CHANGES /
-      // APPROVE reviews on every successful check.
+      // Synchronous in-memory guard must come before any await so concurrent
+      // event handlers can't both pass the check before either posts a review.
+      const reviewKey = `${repository.full_name}#${pr.number}@${fullPr.head.sha}`;
+      if (reviewedPRSHAs.has(reviewKey)) {
+        app.log.info(
+          `Skipping PR #${pr.number} — concurrent review already in-flight for ${fullPr.head.sha}`,
+        );
+        continue;
+      }
+      reviewedPRSHAs.add(reviewKey);
+
+      // API-based dedup: catches re-runs and restarts across process restarts
+      // where the in-memory set was cleared.
       try {
         const { data: existingReviews } =
           await ctx.octokit.pulls.listReviews({

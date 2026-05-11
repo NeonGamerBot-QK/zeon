@@ -108,6 +108,9 @@ module.exports = async (app) => {
   const COPILOT_BOT_PATTERN = /copilot/i;
 
   const CI_WAITING_MARKER = "<!-- zeon:merge-gate:ci-waiting -->";
+  // In-memory guard so concurrent webhook events don't race to create a second
+  // ci-waiting comment before the first one is visible in listComments.
+  const pendingWaitingComment = new Set();
   // Stores the merge method so it can be restored after checks pass.
   // Format: <!-- zeon:merge-gate:automerge-disabled:METHOD -->
   const AUTO_MERGE_DISABLED_MARKER = "<!-- zeon:merge-gate:automerge-disabled:";
@@ -276,30 +279,47 @@ module.exports = async (app) => {
             });
           }
         } else {
-          // Auto-merge not active — just leave a once-per-SHA waiting comment.
-          const alreadyCommented = comments.some(
-            (c) =>
-              c.body?.includes(CI_WAITING_MARKER) && c.body?.includes(headSha),
+          // Auto-merge not active — keep a single waiting comment, updating it
+          // rather than creating a new one each time.
+          const existingWaitingComment = comments.find((c) =>
+            c.body?.includes(CI_WAITING_MARKER),
           );
-          if (!alreadyCommented) {
-            await octokit.issues.createComment({
+          const waitingBody =
+            `${CI_WAITING_MARKER}\n` +
+            `⏳ **Merge gate is waiting on CI** (commit \`${headSha.slice(0, 7)}\`)\n\n` +
+            "The following checks need to pass before this PR can be merged:\n" +
+            reasons
+              .filter(
+                (r) =>
+                  r.toLowerCase().includes("check") ||
+                  r.toLowerCase().includes("status"),
+              )
+              .map((r) => `- ${r}`)
+              .join("\n") +
+            `\n\nI'll update the \`${MERGE_GATE_CONTEXT}\` status check as things change.`;
+          if (existingWaitingComment) {
+            await octokit.issues.updateComment({
               owner,
               repo,
-              issue_number: pullNumber,
-              body:
-                `${CI_WAITING_MARKER}\n` +
-                `⏳ **Merge gate is waiting on CI** (commit \`${headSha.slice(0, 7)}\`)\n\n` +
-                "The following checks need to pass before this PR can be merged:\n" +
-                reasons
-                  .filter(
-                    (r) =>
-                      r.toLowerCase().includes("check") ||
-                      r.toLowerCase().includes("status"),
-                  )
-                  .map((r) => `- ${r}`)
-                  .join("\n") +
-                `\n\nI'll update the \`${MERGE_GATE_CONTEXT}\` status check as things change.`,
+              comment_id: existingWaitingComment.id,
+              body: waitingBody,
             });
+          } else {
+            // In-memory guard prevents a second creation while the first is in-flight.
+            const prKey = `${owner}/${repo}#${pullNumber}`;
+            if (!pendingWaitingComment.has(prKey)) {
+              pendingWaitingComment.add(prKey);
+              try {
+                await octokit.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pullNumber,
+                  body: waitingBody,
+                });
+              } finally {
+                pendingWaitingComment.delete(prKey);
+              }
+            }
           }
         }
       } else if (disabledComment) {
