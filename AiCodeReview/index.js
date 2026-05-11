@@ -195,16 +195,23 @@ module.exports = async (app) => {
         );
       }
 
-      // Also check legacy commit statuses
+      // Also check legacy commit statuses, excluding our own context to avoid
+      // the merge gate's pending status making it report itself as a blocker.
       const { data: statusData } = await octokit.repos.getCombinedStatusForRef({
         owner,
         repo,
         ref: headSha,
       });
-
-      if (statusData.state === "failure" || statusData.state === "pending") {
+      const failingStatuses = statusData.statuses.filter(
+        (s) =>
+          s.context !== MERGE_GATE_CONTEXT &&
+          (s.state === "failure" || s.state === "pending"),
+      );
+      if (failingStatuses.length > 0) {
         allChecksPassed = false;
-        reasons.push(`commit status is ${statusData.state}`);
+        reasons.push(
+          `commit status is failing/pending: ${failingStatuses.map((s) => s.context).join(", ")}`,
+        );
       }
     } catch (e) {
       console.error("merge-gate: failed to fetch check runs", e);
