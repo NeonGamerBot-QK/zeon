@@ -1655,6 +1655,224 @@ I require pull request titles to follow the [Conventional Commits specification]
     }
   });
 
+  // Label colors and descriptions for conventional commit types.
+  const CONVENTIONAL_TYPE_LABELS = {
+    feat: { color: "0075ca", description: "New feature" },
+    fix: { color: "d73a4a", description: "Bug fix" },
+    chore: { color: "e4e669", description: "Chore / maintenance" },
+    docs: { color: "0075ca", description: "Documentation" },
+    style: { color: "cfd3d7", description: "Code style change" },
+    refactor: { color: "a2eeef", description: "Code refactor" },
+    test: { color: "0e8a16", description: "Tests" },
+    perf: { color: "e99695", description: "Performance improvement" },
+    ci: { color: "f9d0c4", description: "CI/CD" },
+    build: { color: "fef2c0", description: "Build system" },
+    revert: { color: "b60205", description: "Revert" },
+  };
+
+  /**
+   * Ensures a label exists in the repo, creating it if missing.
+   *
+   * @param {import('@octokit/rest').Octokit} octokit
+   * @param {string} owner
+   * @param {string} repo
+   * @param {string} name
+   * @param {string} color - hex without #
+   * @param {string} description
+   */
+  async function ensureLabel (octokit, owner, repo, name, color, description) {
+    try {
+      await octokit.issues.getLabel({ owner, repo, name });
+    } catch (e) {
+      if (e.status === 404) {
+        try {
+          await octokit.issues.createLabel({ owner, repo, name, color, description });
+        } catch (createErr) {
+          // Another concurrent request may have created it between get and create — safe to ignore.
+          if (createErr.status !== 422) throw createErr;
+        }
+      }
+    }
+  }
+
+  /**
+   * Parses the conventional commit type/scope from the PR title, uses AI to
+   * suggest area labels, and applies all of them to the PR.
+   *
+   * @param {import('@octokit/rest').Octokit} octokit
+   * @param {object} log
+   * @param {object} repository
+   * @param {object} fullPr
+   */
+  async function applyPRLabels (octokit, log, repository, fullPr) {
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const labelsToAdd = [];
+
+    // Parse conventional commit: type(scope)!: description
+    const ccMatch = fullPr.title.match(/^(\w+)(\(([^)]+)\))?(!)?\s*:/);
+    if (ccMatch) {
+      const type = ccMatch[1].toLowerCase();
+      const scope = ccMatch[3];
+      const isBreaking = !!ccMatch[4];
+
+      if (CONVENTIONAL_TYPE_LABELS[type]) {
+        const { color, description } = CONVENTIONAL_TYPE_LABELS[type];
+        await ensureLabel(octokit, owner, repo, type, color, description);
+        labelsToAdd.push(type);
+      }
+
+      if (scope) {
+        await ensureLabel(octokit, owner, repo, scope, "ededed", `Scope: ${scope}`);
+        labelsToAdd.push(scope);
+      }
+
+      if (isBreaking || (fullPr.body || "").includes("BREAKING CHANGE")) {
+        await ensureLabel(octokit, owner, repo, "breaking change", "b60205", "Breaking change");
+        labelsToAdd.push("breaking change");
+      }
+    }
+
+    // Ask AI for additional area/topic labels.
+    try {
+      const completion = await ai_client.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content:
+              `PR title: "${fullPr.title}"\nPR body: "${(fullPr.body || "").slice(0, 500)}"\n\n` +
+              "Suggest 1-3 short, lowercase GitHub labels for this PR that describe the area of the codebase affected (e.g. \"auth\", \"api\", \"ui\", \"database\", \"config\") or the nature of the change. " +
+              "Do NOT repeat the conventional commit type. Respond ONLY with a JSON array of strings. No explanation.",
+          },
+        ],
+      });
+      const aiLabels = JSON.parse(completion.choices[0].message.content);
+      for (const label of aiLabels.slice(0, 3)) {
+        const name = String(label).toLowerCase().trim().slice(0, 50);
+        if (name && !labelsToAdd.includes(name)) {
+          await ensureLabel(octokit, owner, repo, name, "ededed", "");
+          labelsToAdd.push(name);
+        }
+      }
+    } catch (e) {
+      log.error(`AI label suggestion failed for PR #${fullPr.number}: ${e.message}`);
+    }
+
+    if (labelsToAdd.length > 0) {
+      try {
+        await octokit.issues.addLabels({
+          owner, repo, issue_number: fullPr.number, labels: labelsToAdd,
+        });
+      } catch (e) {
+        log.error(`Failed to apply labels to PR #${fullPr.number}: ${e.message}`);
+      }
+    }
+  }
+
+  // Apply labels when a PR is opened or its title/head changes.
+  app.on(["pull_request.opened", "pull_request.synchronize"], async (ctx) => {
+    const { repository, pull_request } = ctx.payload;
+    if (repository.full_name !== "NeonGamerBot-QK/myBot") return;
+    await applyPRLabels(ctx.octokit, app.log, repository, pull_request);
+  });
+
+  // !zeon_review comment command — runs gate checks and reports status,
+  // then kicks off AI review if everything is green.
+  app.on(["issue_comment.created"], async (ctx) => {
+    const { repository, issue, comment } = ctx.payload;
+    if (repository.full_name !== "NeonGamerBot-QK/myBot") return;
+    if (!issue.pull_request) return;
+    if (comment.body.trim() !== "!zeon_review") return;
+
+    const owner = repository.owner.login;
+    const repo = repository.name;
+
+    let fullPr;
+    try {
+      ({ data: fullPr } = await ctx.octokit.pulls.get({
+        owner, repo, pull_number: issue.number,
+      }));
+    } catch (e) {
+      app.log.error(`!zeon_review: failed to fetch PR #${issue.number}: ${e.message}`);
+      return;
+    }
+
+    const blocking = [];
+
+    // Check CI checks.
+    try {
+      const { data: checkRunsData } = await ctx.octokit.checks.listForRef({
+        owner, repo, ref: fullPr.head.sha, per_page: 100,
+      });
+      const failing = checkRunsData.check_runs.filter(
+        (run) =>
+          run.name !== "zeon/merge-gate" &&
+          (run.status !== "completed" ||
+            !["success", "neutral", "skipped"].includes(run.conclusion)),
+      );
+      if (failing.length > 0) {
+        blocking.push(`${failing.length} failing/pending CI check(s): ${failing.map((r) => r.name).join(", ")}`);
+      }
+    } catch (e) {
+      app.log.error(`!zeon_review: CI check failed for PR #${issue.number}: ${e.message}`);
+    }
+
+    // Check Copilot threads.
+    try {
+      const copilotResult = await ctx.octokit.graphql(
+        `query($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviewThreads(first: 100) {
+                nodes {
+                  isResolved
+                  comments(first: 1) {
+                    nodes { author { login } }
+                  }
+                }
+              }
+            }
+          }
+        }`,
+        { owner, repo, number: issue.number },
+      );
+      const threads = copilotResult.repository.pullRequest.reviewThreads.nodes;
+      const copilotThreads = threads.filter((t) =>
+        t.comments.nodes.some((c) => /copilot/i.test(c.author?.login || "")),
+      );
+      if (copilotThreads.length === 0) {
+        blocking.push("Copilot has not reviewed yet");
+      } else {
+        const unresolved = copilotThreads.filter((t) => !t.isResolved);
+        if (unresolved.length > 0) {
+          blocking.push(`${unresolved.length} unresolved Copilot thread(s)`);
+        }
+      }
+    } catch (e) {
+      app.log.error(`!zeon_review: Copilot check failed for PR #${issue.number}: ${e.message}`);
+    }
+
+    if (blocking.length > 0) {
+      await ctx.octokit.issues.createComment({
+        owner, repo, issue_number: issue.number,
+        body:
+          "⏳ **Zeon can't review yet.** The following need to be resolved first:\n\n" +
+          blocking.map((r) => `- ${r}`).join("\n"),
+      });
+      return;
+    }
+
+    await ctx.octokit.issues.createComment({
+      owner, repo, issue_number: issue.number,
+      body: "🚀 All gates passed — starting AI review now.",
+    });
+
+    // Clear the in-memory dedup key so a manual !zeon_review always gets a fresh review.
+    reviewedPRSHAs.delete(`${repository.full_name}#${issue.number}@${fullPr.head.sha}`);
+    await reviewAndMaybeMergePR(ctx.octokit, app.log, repository, fullPr);
+  });
+
   // all copied probot bots
   // require("./Stale")(app)
   // try {require('./Linter')(app) } catch(e) {}
