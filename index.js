@@ -1490,6 +1490,8 @@ I require pull request titles to follow the [Conventional Commits specification]
     }
 
     // Require Copilot to have reviewed AND all its threads resolved.
+    // Exception: if Copilot posted an error comment ("encountered an error and
+    // was unable to review"), treat that as an all-clear and skip the gate.
     try {
       const copilotResult = await octokit.graphql(
         `query($owner: String!, $repo: String!, $number: Int!) {
@@ -1503,23 +1505,38 @@ I require pull request titles to follow the [Conventional Commits specification]
                   }
                 }
               }
+              comments(first: 100) {
+                nodes { author { login } body }
+              }
             }
           }
         }`,
         { owner, repo, number: prNumber },
       );
-      const threads = copilotResult.repository.pullRequest.reviewThreads.nodes;
+      const pr = copilotResult.repository.pullRequest;
+      const threads = pr.reviewThreads.nodes;
       const copilotThreads = threads.filter((t) =>
         t.comments.nodes.some((c) => /copilot/i.test(c.author?.login || "")),
       );
       if (copilotThreads.length === 0) {
-        log.info(`Skipping PR #${prNumber} — Copilot has not reviewed yet`);
-        return;
-      }
-      const unresolved = copilotThreads.filter((t) => !t.isResolved);
-      if (unresolved.length > 0) {
-        log.info(`Skipping PR #${prNumber} — ${unresolved.length} unresolved Copilot thread(s)`);
-        return;
+        // Check if Copilot bailed with an error comment instead of a review.
+        const copilotErrorComment = pr.comments.nodes.find(
+          (c) =>
+            /copilot/i.test(c.author?.login || "") &&
+            /encountered an error and was unable to review/i.test(c.body),
+        );
+        if (copilotErrorComment) {
+          log.info(`PR #${prNumber} — Copilot errored out, treating as all-clear`);
+        } else {
+          log.info(`Skipping PR #${prNumber} — Copilot has not reviewed yet`);
+          return;
+        }
+      } else {
+        const unresolved = copilotThreads.filter((t) => !t.isResolved);
+        if (unresolved.length > 0) {
+          log.info(`Skipping PR #${prNumber} — ${unresolved.length} unresolved Copilot thread(s)`);
+          return;
+        }
       }
     } catch (e) {
       log.error(`Failed to check Copilot threads for PR #${prNumber}: ${e.message}`);
