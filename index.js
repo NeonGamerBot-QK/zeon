@@ -1417,7 +1417,7 @@ I require pull request titles to follow the [Conventional Commits specification]
    * @param {object} repository - GitHub repository payload object
    * @param {object} fullPr - Full PR object from pulls.get
    */
-  async function reviewAndMaybeMergePR (octokit, log, repository, fullPr) {
+  async function reviewAndMaybeMergePR(octokit, log, repository, fullPr) {
     const owner = repository.owner.login;
     const repo = repository.name;
     const prNumber = fullPr.number;
@@ -1428,7 +1428,9 @@ I require pull request titles to follow the [Conventional Commits specification]
     // can't both pass the dedup check before either posts a review.
     const reviewKey = `${repository.full_name}#${prNumber}@${fullPr.head.sha}`;
     if (reviewedPRSHAs.has(reviewKey)) {
-      log.info(`Skipping PR #${prNumber} — concurrent review already in-flight for ${fullPr.head.sha}`);
+      log.info(
+        `Skipping PR #${prNumber} — concurrent review already in-flight for ${fullPr.head.sha}`,
+      );
       return;
     }
     reviewedPRSHAs.add(reviewKey);
@@ -1436,7 +1438,10 @@ I require pull request titles to follow the [Conventional Commits specification]
     // API-based dedup: survives process restarts where the in-memory set was cleared.
     try {
       const { data: existingReviews } = await octokit.pulls.listReviews({
-        owner, repo, pull_number: prNumber, per_page: 100,
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 100,
       });
       const alreadyReviewed = existingReviews.some(
         (r) =>
@@ -1446,7 +1451,9 @@ I require pull request titles to follow the [Conventional Commits specification]
           (r.state === "CHANGES_REQUESTED" || r.state === "APPROVED"),
       );
       if (alreadyReviewed) {
-        log.info(`Skipping PR #${prNumber} — zeon already reviewed ${fullPr.head.sha}`);
+        log.info(
+          `Skipping PR #${prNumber} — zeon already reviewed ${fullPr.head.sha}`,
+        );
         return;
       }
     } catch (e) {
@@ -1461,7 +1468,9 @@ I require pull request titles to follow the [Conventional Commits specification]
       log.info(`Skipping PR #${prNumber} — [do-not-automerge] tag present`);
       try {
         await octokit.issues.createComment({
-          owner, repo, issue_number: prNumber,
+          owner,
+          repo,
+          issue_number: prNumber,
           body: "I'm not merging this one — `[do-not-automerge]` is set.",
         });
       } catch (e) {}
@@ -1472,7 +1481,10 @@ I require pull request titles to follow the [Conventional Commits specification]
     // "success" doesn't mean all checks passed.
     try {
       const { data: checkRunsData } = await octokit.checks.listForRef({
-        owner, repo, ref: fullPr.head.sha, per_page: 100,
+        owner,
+        repo,
+        ref: fullPr.head.sha,
+        per_page: 100,
       });
       const failing = checkRunsData.check_runs.filter(
         (run) =>
@@ -1481,7 +1493,9 @@ I require pull request titles to follow the [Conventional Commits specification]
             !["success", "neutral", "skipped"].includes(run.conclusion)),
       );
       if (failing.length > 0) {
-        log.info(`Skipping PR #${prNumber} — ${failing.length} failing/pending check(s): ${failing.map((r) => r.name).join(", ")}`);
+        log.info(
+          `Skipping PR #${prNumber} — ${failing.length} failing/pending check(s): ${failing.map((r) => r.name).join(", ")}`,
+        );
         return;
       }
     } catch (e) {
@@ -1526,7 +1540,9 @@ I require pull request titles to follow the [Conventional Commits specification]
             /encountered an error and was unable to review/i.test(c.body),
         );
         if (copilotErrorComment) {
-          log.info(`PR #${prNumber} — Copilot errored out, treating as all-clear`);
+          log.info(
+            `PR #${prNumber} — Copilot errored out, treating as all-clear`,
+          );
         } else {
           log.info(`Skipping PR #${prNumber} — Copilot has not reviewed yet`);
           return;
@@ -1534,12 +1550,16 @@ I require pull request titles to follow the [Conventional Commits specification]
       } else {
         const unresolved = copilotThreads.filter((t) => !t.isResolved);
         if (unresolved.length > 0) {
-          log.info(`Skipping PR #${prNumber} — ${unresolved.length} unresolved Copilot thread(s)`);
+          log.info(
+            `Skipping PR #${prNumber} — ${unresolved.length} unresolved Copilot thread(s)`,
+          );
           return;
         }
       }
     } catch (e) {
-      log.error(`Failed to check Copilot threads for PR #${prNumber}: ${e.message}`);
+      log.error(
+        `Failed to check Copilot threads for PR #${prNumber}: ${e.message}`,
+      );
       return;
     }
 
@@ -1547,7 +1567,10 @@ I require pull request titles to follow the [Conventional Commits specification]
     let diff;
     try {
       ({ data: diff } = await octokit.rest.pulls.get({
-        owner, repo, pull_number: prNumber, mediaType: { format: "patch" },
+        owner,
+        repo,
+        pull_number: prNumber,
+        mediaType: { format: "patch" },
       }));
     } catch (e) {
       log.error(`Failed to fetch diff for PR #${prNumber}: ${e.message}`);
@@ -1578,7 +1601,9 @@ I require pull request titles to follow the [Conventional Commits specification]
 
     try {
       await octokit.issues.createComment({
-        owner, repo, issue_number: prNumber,
+        owner,
+        repo,
+        issue_number: prNumber,
         body:
           out.summary +
           `\n\n<details><summary>Disclosure</summary><p>This review was generated by zeon AI. Verdict: <strong>${out.verdict}</strong></p></details>`,
@@ -1590,11 +1615,17 @@ I require pull request titles to follow the [Conventional Commits specification]
     if (isAccepted) {
       try {
         await octokit.pulls.createReview({
-          owner, repo, pull_number: prNumber, event: "APPROVE",
+          owner,
+          repo,
+          pull_number: prNumber,
+          event: "APPROVE",
           body: "Approved by zeon AI review.",
         });
         await octokit.pulls.merge({
-          owner, repo, pull_number: prNumber, merge_method: "squash",
+          owner,
+          repo,
+          pull_number: prNumber,
+          merge_method: "squash",
         });
       } catch (e) {
         log.error(`Failed to approve/merge PR #${prNumber}: ${e.message}`);
@@ -1602,7 +1633,10 @@ I require pull request titles to follow the [Conventional Commits specification]
     } else {
       try {
         await octokit.pulls.createReview({
-          owner, repo, pull_number: prNumber, event: "REQUEST_CHANGES",
+          owner,
+          repo,
+          pull_number: prNumber,
+          event: "REQUEST_CHANGES",
           body: out.summary,
         });
       } catch (e) {
@@ -1646,11 +1680,12 @@ I require pull request titles to follow the [Conventional Commits specification]
 
     let prs;
     try {
-      ({ data: prs } = await ctx.octokit.repos.listPullRequestsAssociatedWithCommit({
-        owner: repository.owner.login,
-        repo: repository.name,
-        commit_sha: sha,
-      }));
+      ({ data: prs } =
+        await ctx.octokit.repos.listPullRequestsAssociatedWithCommit({
+          owner: repository.owner.login,
+          repo: repository.name,
+          commit_sha: sha,
+        }));
     } catch (e) {
       app.log.error(`Failed to find PRs for SHA ${sha}: ${e.message}`);
       return;
@@ -1697,13 +1732,19 @@ I require pull request titles to follow the [Conventional Commits specification]
    * @param {string} color - hex without #
    * @param {string} description
    */
-  async function ensureLabel (octokit, owner, repo, name, color, description) {
+  async function ensureLabel(octokit, owner, repo, name, color, description) {
     try {
       await octokit.issues.getLabel({ owner, repo, name });
     } catch (e) {
       if (e.status === 404) {
         try {
-          await octokit.issues.createLabel({ owner, repo, name, color, description });
+          await octokit.issues.createLabel({
+            owner,
+            repo,
+            name,
+            color,
+            description,
+          });
         } catch (createErr) {
           // Another concurrent request may have created it between get and create — safe to ignore.
           if (createErr.status !== 422) throw createErr;
@@ -1721,7 +1762,7 @@ I require pull request titles to follow the [Conventional Commits specification]
    * @param {object} repository
    * @param {object} fullPr
    */
-  async function applyPRLabels (octokit, log, repository, fullPr) {
+  async function applyPRLabels(octokit, log, repository, fullPr) {
     const owner = repository.owner.login;
     const repo = repository.name;
     const labelsToAdd = [];
@@ -1740,12 +1781,26 @@ I require pull request titles to follow the [Conventional Commits specification]
       }
 
       if (scope) {
-        await ensureLabel(octokit, owner, repo, scope, "ededed", `Scope: ${scope}`);
+        await ensureLabel(
+          octokit,
+          owner,
+          repo,
+          scope,
+          "ededed",
+          `Scope: ${scope}`,
+        );
         labelsToAdd.push(scope);
       }
 
       if (isBreaking || (fullPr.body || "").includes("BREAKING CHANGE")) {
-        await ensureLabel(octokit, owner, repo, "breaking change", "b60205", "Breaking change");
+        await ensureLabel(
+          octokit,
+          owner,
+          repo,
+          "breaking change",
+          "b60205",
+          "Breaking change",
+        );
         labelsToAdd.push("breaking change");
       }
     }
@@ -1759,12 +1814,15 @@ I require pull request titles to follow the [Conventional Commits specification]
             role: "user",
             content:
               `PR title: "${fullPr.title}"\nPR body: "${(fullPr.body || "").slice(0, 500)}"\n\n` +
-              "Suggest 1-3 short, lowercase GitHub labels for this PR that describe the area of the codebase affected (e.g. \"auth\", \"api\", \"ui\", \"database\", \"config\") or the nature of the change. " +
+              'Suggest 1-3 short, lowercase GitHub labels for this PR that describe the area of the codebase affected (e.g. "auth", "api", "ui", "database", "config") or the nature of the change. ' +
               "Do NOT repeat the conventional commit type. Respond ONLY with a JSON array of strings. No explanation.",
           },
         ],
       });
-      const raw = completion.choices[0].message.content.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      const raw = completion.choices[0].message.content
+        .trim()
+        .replace(/^```(?:json)?\n?/, "")
+        .replace(/\n?```$/, "");
       const aiLabels = JSON.parse(raw);
       for (const label of aiLabels.slice(0, 3)) {
         const name = String(label).toLowerCase().trim().slice(0, 50);
@@ -1774,16 +1832,23 @@ I require pull request titles to follow the [Conventional Commits specification]
         }
       }
     } catch (e) {
-      log.error(`AI label suggestion failed for PR #${fullPr.number}: ${e.message}`);
+      log.error(
+        `AI label suggestion failed for PR #${fullPr.number}: ${e.message}`,
+      );
     }
 
     if (labelsToAdd.length > 0) {
       try {
         await octokit.issues.addLabels({
-          owner, repo, issue_number: fullPr.number, labels: labelsToAdd,
+          owner,
+          repo,
+          issue_number: fullPr.number,
+          labels: labelsToAdd,
         });
       } catch (e) {
-        log.error(`Failed to apply labels to PR #${fullPr.number}: ${e.message}`);
+        log.error(
+          `Failed to apply labels to PR #${fullPr.number}: ${e.message}`,
+        );
       }
     }
   }
@@ -1809,10 +1874,14 @@ I require pull request titles to follow the [Conventional Commits specification]
     let fullPr;
     try {
       ({ data: fullPr } = await ctx.octokit.pulls.get({
-        owner, repo, pull_number: issue.number,
+        owner,
+        repo,
+        pull_number: issue.number,
       }));
     } catch (e) {
-      app.log.error(`!zeon_review: failed to fetch PR #${issue.number}: ${e.message}`);
+      app.log.error(
+        `!zeon_review: failed to fetch PR #${issue.number}: ${e.message}`,
+      );
       return;
     }
 
@@ -1821,7 +1890,10 @@ I require pull request titles to follow the [Conventional Commits specification]
     // Check CI checks.
     try {
       const { data: checkRunsData } = await ctx.octokit.checks.listForRef({
-        owner, repo, ref: fullPr.head.sha, per_page: 100,
+        owner,
+        repo,
+        ref: fullPr.head.sha,
+        per_page: 100,
       });
       const failing = checkRunsData.check_runs.filter(
         (run) =>
@@ -1830,16 +1902,21 @@ I require pull request titles to follow the [Conventional Commits specification]
             !["success", "neutral", "skipped"].includes(run.conclusion)),
       );
       if (failing.length > 0) {
-        blocking.push(`${failing.length} failing/pending CI check(s): ${failing.map((r) => r.name).join(", ")}`);
+        blocking.push(
+          `${failing.length} failing/pending CI check(s): ${failing.map((r) => r.name).join(", ")}`,
+        );
       }
     } catch (e) {
-      app.log.error(`!zeon_review: CI check failed for PR #${issue.number}: ${e.message}`);
+      app.log.error(
+        `!zeon_review: CI check failed for PR #${issue.number}: ${e.message}`,
+      );
     }
-
 
     if (blocking.length > 0) {
       await ctx.octokit.issues.createComment({
-        owner, repo, issue_number: issue.number,
+        owner,
+        repo,
+        issue_number: issue.number,
         body:
           "⏳ **Zeon can't review yet.** The following need to be resolved first:\n\n" +
           blocking.map((r) => `- ${r}`).join("\n"),
@@ -1848,12 +1925,16 @@ I require pull request titles to follow the [Conventional Commits specification]
     }
 
     await ctx.octokit.issues.createComment({
-      owner, repo, issue_number: issue.number,
+      owner,
+      repo,
+      issue_number: issue.number,
       body: "🚀 CI is green — starting AI review now.",
     });
 
     // Clear the in-memory dedup key so a manual !zeon_review always gets a fresh review.
-    reviewedPRSHAs.delete(`${repository.full_name}#${issue.number}@${fullPr.head.sha}`);
+    reviewedPRSHAs.delete(
+      `${repository.full_name}#${issue.number}@${fullPr.head.sha}`,
+    );
     await reviewAndMaybeMergePR(ctx.octokit, app.log, repository, fullPr);
   });
 
