@@ -105,7 +105,6 @@ module.exports = async (app) => {
   // threads are resolved and all status checks have passed.
   const MERGE_GATE_REPOS = ["mybot"];
   const MERGE_GATE_CONTEXT = "zeon/merge-gate";
-  const COPILOT_BOT_PATTERN = /copilot/i;
 
   const CI_WAITING_MARKER = "<!-- zeon:merge-gate:ci-waiting -->";
   // In-memory guard so concurrent webhook events don't race to create a second
@@ -116,9 +115,8 @@ module.exports = async (app) => {
   const AUTO_MERGE_DISABLED_MARKER = "<!-- zeon:merge-gate:automerge-disabled:";
 
   /**
-   * Evaluates Copilot thread resolution and check-run status for a PR, then
-   * writes a commit status that can be used as a required branch-protection
-   * check to gate merging.
+   * Evaluates check-run status for a PR, then writes a commit status that can
+   * be used as a required branch-protection check to gate merging.
    *
    * @param {import('@octokit/rest').Octokit} octokit
    * @param {string} owner
@@ -127,50 +125,8 @@ module.exports = async (app) => {
    * @param {string} headSha
    */
   async function updateMergeGate(octokit, owner, repo, pullNumber, headSha) {
-    let copilotResolved = true;
     let allChecksPassed = true;
     const reasons = [];
-
-    // Check Copilot review threads via GraphQL (REST does not expose isResolved)
-    try {
-      const result = await octokit.graphql(
-        `query($owner: String!, $repo: String!, $number: Int!) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $number) {
-              reviewThreads(first: 100) {
-                nodes {
-                  isResolved
-                  comments(first: 1) {
-                    nodes {
-                      author { login }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }`,
-        { owner, repo, number: pullNumber },
-      );
-
-      const threads = result.repository.pullRequest.reviewThreads.nodes;
-      const unresolved = threads.filter(
-        (t) =>
-          !t.isResolved &&
-          t.comments.nodes.some((c) =>
-            COPILOT_BOT_PATTERN.test(c.author?.login || ""),
-          ),
-      );
-
-      if (unresolved.length > 0) {
-        copilotResolved = false;
-        reasons.push(
-          `${unresolved.length} unresolved Copilot review thread(s)`,
-        );
-      }
-    } catch (e) {
-      console.error("merge-gate: failed to fetch review threads", e);
-    }
 
     // Check all check runs for the head SHA
     try {
@@ -217,7 +173,7 @@ module.exports = async (app) => {
       console.error("merge-gate: failed to fetch check runs", e);
     }
 
-    const passed = copilotResolved && allChecksPassed;
+    const passed = allChecksPassed;
 
     try {
       await octokit.repos.createCommitStatus({
@@ -227,7 +183,7 @@ module.exports = async (app) => {
         state: passed ? "success" : "pending",
         context: MERGE_GATE_CONTEXT,
         description: passed
-          ? "All Copilot comments resolved and checks passed"
+          ? "All checks passed"
           : `Waiting: ${reasons.join("; ")}`,
         target_url: `https://github.com/${owner}/${repo}/pull/${pullNumber}`,
       });
@@ -365,7 +321,7 @@ module.exports = async (app) => {
             comment_id: existingWaitingComment.id,
             body:
               `${CI_WAITING_MARKER}\n` +
-              "✅ **All clear!** Every check passed and all Copilot threads are resolved. Zeon is starting AI review now.",
+              "✅ **All clear!** Every check passed. Zeon is starting AI review now.",
           });
         }
       }
