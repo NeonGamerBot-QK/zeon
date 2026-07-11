@@ -1803,9 +1803,27 @@ I require pull request titles to follow the [Conventional Commits specification]
   // then kicks off AI review if everything is green.
   app.on(["issue_comment.created"], async (ctx) => {
     const { repository, issue, comment } = ctx.payload;
-    if (repository.full_name !== "NeonGamerBot-QK/myBot") return;
-    if (!issue.pull_request) return;
-    if (comment.body.trim() !== "!zeon_review") return;
+    app.log.debug(
+      `!zeon_review: received comment on ${repository.full_name}#${issue.number} from ${comment.user?.login}: ${JSON.stringify(comment.body)}`,
+    );
+    if (repository.full_name !== "NeonGamerBot-QK/myBot") {
+      app.log.debug(
+        `!zeon_review: ignoring — wrong repo (${repository.full_name})`,
+      );
+      return;
+    }
+    if (!issue.pull_request) {
+      app.log.debug(`!zeon_review: ignoring — issue #${issue.number} is not a PR`);
+      return;
+    }
+    if (comment.body.trim() !== "!zeon_review") {
+      app.log.debug(
+        `!zeon_review: ignoring — comment body didn't match trigger exactly`,
+      );
+      return;
+    }
+
+    app.log.debug(`!zeon_review: triggered for PR #${issue.number}`);
 
     const owner = repository.owner.login;
     const repo = repository.name;
@@ -1817,6 +1835,9 @@ I require pull request titles to follow the [Conventional Commits specification]
         repo,
         pull_number: issue.number,
       }));
+      app.log.debug(
+        `!zeon_review: fetched PR #${issue.number} @ ${fullPr.head.sha} (state=${fullPr.state}, draft=${fullPr.draft})`,
+      );
     } catch (e) {
       app.log.error(
         `!zeon_review: failed to fetch PR #${issue.number}: ${e.message}`,
@@ -1834,6 +1855,9 @@ I require pull request titles to follow the [Conventional Commits specification]
         ref: fullPr.head.sha,
         per_page: 100,
       });
+      app.log.debug(
+        `!zeon_review: fetched ${checkRunsData.check_runs.length} check run(s) for ${fullPr.head.sha}: ${checkRunsData.check_runs.map((r) => `${r.name}=${r.status}/${r.conclusion}`).join(", ")}`,
+      );
       const failing = checkRunsData.check_runs.filter(
         (run) =>
           run.name !== "zeon/merge-gate" &&
@@ -1852,6 +1876,9 @@ I require pull request titles to follow the [Conventional Commits specification]
     }
 
     if (blocking.length > 0) {
+      app.log.debug(
+        `!zeon_review: PR #${issue.number} blocked: ${blocking.join("; ")}`,
+      );
       await ctx.octokit.issues.createComment({
         owner,
         repo,
@@ -1863,6 +1890,10 @@ I require pull request titles to follow the [Conventional Commits specification]
       return;
     }
 
+    app.log.debug(
+      `!zeon_review: CI green for PR #${issue.number} @ ${fullPr.head.sha} — proceeding to AI review`,
+    );
+
     await ctx.octokit.issues.createComment({
       owner,
       repo,
@@ -1871,10 +1902,90 @@ I require pull request titles to follow the [Conventional Commits specification]
     });
 
     // Clear the in-memory dedup key so a manual !zeon_review always gets a fresh review.
-    reviewedPRSHAs.delete(
-      `${repository.full_name}#${issue.number}@${fullPr.head.sha}`,
-    );
+    const reviewKey = `${repository.full_name}#${issue.number}@${fullPr.head.sha}`;
+    app.log.debug(`!zeon_review: clearing dedup key ${reviewKey}`);
+    reviewedPRSHAs.delete(reviewKey);
     await reviewAndMaybeMergePR(ctx.octokit, app.log, repository, fullPr);
+    app.log.debug(`!zeon_review: reviewAndMaybeMergePR finished for PR #${issue.number}`);
+  });
+
+  // In-memory guard so a single stalled SHA only gets bumped once, even if
+  // multiple synchronize events fire in quick succession.
+  const bumpedForSHA = new Set();
+  const AI_REVIEW_BUMP_DELAY_MS = 10 * 60 * 1000;
+
+  // If new commits land and the AI review never shows up despite the merge
+  // gate going green, something silently choked (rate limit, bad JSON from
+  // the model, whatever). Nudge it back to life by re-posting the
+  // !zeon_review trigger ourselves instead of waiting on a human to notice.
+  app.on(["pull_request.synchronize"], async (ctx) => {
+    const { repository, pull_request } = ctx.payload;
+    if (repository.full_name !== "NeonGamerBot-QK/myBot") return;
+    if (pull_request.draft) return;
+
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const prNumber = pull_request.number;
+    const headSha = pull_request.head.sha;
+    const bumpKey = `${repository.full_name}#${prNumber}@${headSha}`;
+
+    setTimeout(async () => {
+      if (bumpedForSHA.has(bumpKey)) return;
+
+      try {
+        const { data: fullPr } = await ctx.octokit.pulls.get({
+          owner,
+          repo,
+          pull_number: prNumber,
+        });
+
+        // PR moved on (new push) or got closed since we scheduled this check.
+        if (fullPr.head.sha !== headSha || fullPr.state !== "open") return;
+
+        const { data: statusData } =
+          await ctx.octokit.repos.getCombinedStatusForRef({
+            owner,
+            repo,
+            ref: headSha,
+          });
+        const gateStatus = statusData.statuses.find(
+          (s) => s.context === "zeon/merge-gate",
+        );
+        // Merge gate isn't green yet — AI review is correctly still waiting,
+        // not broken. Nothing to bump.
+        if (!gateStatus || gateStatus.state !== "success") return;
+
+        const { data: reviews } = await ctx.octokit.pulls.listReviews({
+          owner,
+          repo,
+          pull_number: prNumber,
+          per_page: 100,
+        });
+        const alreadyReviewed = reviews.some(
+          (r) =>
+            r.user &&
+            r.user.login === "zeon-neon" &&
+            r.commit_id === headSha &&
+            (r.state === "CHANGES_REQUESTED" || r.state === "APPROVED"),
+        );
+        if (alreadyReviewed) return;
+
+        bumpedForSHA.add(bumpKey);
+        await ctx.octokit.issues.createComment({
+          owner,
+          repo,
+          issue_number: prNumber,
+          body: "!zeon_review",
+        });
+        app.log.info(
+          `Bumped stalled AI review for PR #${prNumber} @ ${headSha}`,
+        );
+      } catch (e) {
+        app.log.error(
+          `AI review bump check failed for PR #${prNumber}: ${e.message}`,
+        );
+      }
+    }, AI_REVIEW_BUMP_DELAY_MS);
   });
 
   // all copied probot bots
