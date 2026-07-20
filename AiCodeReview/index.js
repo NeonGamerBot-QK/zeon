@@ -101,10 +101,10 @@ module.exports = async (app) => {
   // PR titles. Per request: only "myBot".
   const CONVENTIONAL_COMMIT_REPOS = ["mybot"];
 
-  // Repos where a merge gate is enforced: blocks merge until all Copilot review
-  // threads are resolved and all status checks have passed.
+  // Repos where a merge gate is enforced until all relevant checks pass.
   const MERGE_GATE_REPOS = ["mybot"];
   const MERGE_GATE_CONTEXT = "zeon/merge-gate";
+  const COPILOT_CHECK_NAME = "copilot-pull-request-reviewer";
 
   const CI_WAITING_MARKER = "<!-- zeon:merge-gate:ci-waiting -->";
   // In-memory guard so concurrent webhook events don't race to create a second
@@ -140,6 +140,7 @@ module.exports = async (app) => {
       const failing = checkRunsData.check_runs.filter(
         (run) =>
           run.name !== MERGE_GATE_CONTEXT &&
+          run.name !== COPILOT_CHECK_NAME &&
           (run.status !== "completed" ||
             !["success", "neutral", "skipped"].includes(run.conclusion)),
       );

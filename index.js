@@ -1407,6 +1407,7 @@ I require pull request titles to follow the [Conventional Commits specification]
   // In-memory guard so concurrent events can't both pass the listReviews
   // dedup check before either has actually posted a review.
   const reviewedPRSHAs = new Set();
+  const COPILOT_CHECK_NAME = "copilot-pull-request-reviewer";
 
   /**
    * Runs all pre-merge gates, then AI-reviews and merges (or requests changes
@@ -1489,6 +1490,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       const failing = checkRunsData.check_runs.filter(
         (run) =>
           run.name !== "zeon/merge-gate" &&
+          run.name !== COPILOT_CHECK_NAME &&
           (run.status !== "completed" ||
             !["success", "neutral", "skipped"].includes(run.conclusion)),
       );
@@ -1861,6 +1863,7 @@ I require pull request titles to follow the [Conventional Commits specification]
       const failing = checkRunsData.check_runs.filter(
         (run) =>
           run.name !== "zeon/merge-gate" &&
+          run.name !== COPILOT_CHECK_NAME &&
           (run.status !== "completed" ||
             !["success", "neutral", "skipped"].includes(run.conclusion)),
       );
