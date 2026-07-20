@@ -1815,7 +1815,9 @@ I require pull request titles to follow the [Conventional Commits specification]
       return;
     }
     if (!issue.pull_request) {
-      app.log.debug(`!zeon_review: ignoring — issue #${issue.number} is not a PR`);
+      app.log.debug(
+        `!zeon_review: ignoring — issue #${issue.number} is not a PR`,
+      );
       return;
     }
     if (comment.body.trim() !== "!zeon_review") {
@@ -1909,7 +1911,9 @@ I require pull request titles to follow the [Conventional Commits specification]
     app.log.debug(`!zeon_review: clearing dedup key ${reviewKey}`);
     reviewedPRSHAs.delete(reviewKey);
     await reviewAndMaybeMergePR(ctx.octokit, app.log, repository, fullPr);
-    app.log.debug(`!zeon_review: reviewAndMaybeMergePR finished for PR #${issue.number}`);
+    app.log.debug(
+      `!zeon_review: reviewAndMaybeMergePR finished for PR #${issue.number}`,
+    );
   });
 
   // In-memory guard so a single stalled SHA only gets bumped once, even if
