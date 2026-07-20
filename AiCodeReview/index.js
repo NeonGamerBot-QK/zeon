@@ -3,6 +3,11 @@
 // import { Chat } from './chat.js';
 
 const OPENAI_API_KEY = "OPENAI_API_KEY";
+const {
+  getNewerDatabasePullRequests,
+  hasSchemaChangeWithoutMigration,
+  listOpenDatabasePullRequests,
+} = require("../merge_gate");
 const MAX_PATCH_COUNT = process.env.MAX_PATCH_LENGTH
   ? +process.env.MAX_PATCH_LENGTH
   : Infinity;
@@ -101,15 +106,25 @@ module.exports = async (app) => {
   // PR titles. Per request: only "myBot".
   const CONVENTIONAL_COMMIT_REPOS = ["mybot"];
 
-  // Repos where a merge gate is enforced until all relevant checks pass.
-  const MERGE_GATE_REPOS = ["mybot"];
+  // Repository where a merge gate is enforced until all relevant checks pass.
+  const MERGE_GATE_REPOSITORY = "neongamerbot-qk/mybot";
   const MERGE_GATE_CONTEXT = "zeon/merge-gate";
   const COPILOT_CHECK_NAME = "copilot-pull-request-reviewer";
+  const DATABASE_WARNING_MARKER = "<!-- zeon:merge-gate:database-warning -->";
+  const DATABASE_COORDINATION_MARKER =
+    "<!-- zeon:merge-gate:database-coordination -->";
+  const DATABASE_MERGE_DEADLINE_MS = 24 * 60 * 60 * 1000;
+  const CHANGELOG_AUTHOR = "neongamerbot-qk";
+  const CHANGELOG_PATH = "CHANGELOG.md";
 
   const CI_WAITING_MARKER = "<!-- zeon:merge-gate:ci-waiting -->";
   // In-memory guard so concurrent webhook events don't race to create a second
   // ci-waiting comment before the first one is visible in listComments.
   const pendingWaitingComment = new Set();
+  // Serialize repository reconciliation so older webhook snapshots cannot
+  // overwrite statuses produced by newer open/close events in this process.
+  const mergeGateReconciliationQueues = new Map();
+  const changelogUpdateQueues = new Map();
   // Stores the merge method so it can be restored after checks pass.
   // Format: <!-- zeon:merge-gate:automerge-disabled:METHOD -->
   const AUTO_MERGE_DISABLED_MARKER = "<!-- zeon:merge-gate:automerge-disabled:";
@@ -123,10 +138,47 @@ module.exports = async (app) => {
    * @param {string} repo
    * @param {number} pullNumber
    * @param {string} headSha
+   * @param {object[]} databasePullRequests
    */
-  async function updateMergeGate(octokit, owner, repo, pullNumber, headSha) {
+  async function updateMergeGate(
+    octokit,
+    owner,
+    repo,
+    pullNumber,
+    headSha,
+    databasePullRequests,
+  ) {
     let allChecksPassed = true;
     const reasons = [];
+    const currentDatabasePullRequest = databasePullRequests.find(
+      (pullRequest) => pullRequest.number === pullNumber,
+    );
+    const newerDatabasePullRequests = getNewerDatabasePullRequests(
+      databasePullRequests,
+      pullNumber,
+    );
+    const waitingDatabasePullRequests = currentDatabasePullRequest
+      ? databasePullRequests
+          .filter((pullRequest) => pullRequest.number < pullNumber)
+          .sort(
+            (firstPullRequest, secondPullRequest) =>
+              secondPullRequest.number - firstPullRequest.number,
+          )
+      : [];
+
+    if (newerDatabasePullRequests.length > 0) {
+      allChecksPassed = false;
+      reasons.push(
+        `newer database PR(s) must be handled first: ${newerDatabasePullRequests.map((pullRequest) => `#${pullRequest.number}`).join(", ")}`,
+      );
+    }
+    if (
+      currentDatabasePullRequest &&
+      hasSchemaChangeWithoutMigration(currentDatabasePullRequest)
+    ) {
+      allChecksPassed = false;
+      reasons.push("db/schema.js changed without a new Drizzle SQL migration");
+    }
 
     // Check all check runs for the head SHA
     try {
@@ -171,6 +223,8 @@ module.exports = async (app) => {
         );
       }
     } catch (e) {
+      allChecksPassed = false;
+      reasons.push("check status could not be verified");
       console.error("merge-gate: failed to fetch check runs", e);
     }
 
@@ -185,11 +239,12 @@ module.exports = async (app) => {
         context: MERGE_GATE_CONTEXT,
         description: passed
           ? "All checks passed"
-          : `Waiting: ${reasons.join("; ")}`,
+          : `Waiting: ${reasons.join("; ")}`.slice(0, 140),
         target_url: `https://github.com/${owner}/${repo}/pull/${pullNumber}`,
       });
     } catch (e) {
       console.error("merge-gate: failed to set commit status", e);
+      return;
     }
 
     try {
@@ -198,7 +253,7 @@ module.exports = async (app) => {
         repo,
         pull_number: pullNumber,
       });
-      const { data: comments } = await octokit.issues.listComments({
+      const comments = await octokit.paginate(octokit.issues.listComments, {
         owner,
         repo,
         issue_number: pullNumber,
@@ -207,6 +262,98 @@ module.exports = async (app) => {
       const disabledComment = comments.find((c) =>
         c.body?.includes(AUTO_MERGE_DISABLED_MARKER),
       );
+      const databaseWarningComment = comments.find((comment) =>
+        comment.body?.includes(DATABASE_WARNING_MARKER),
+      );
+      const databaseCoordinationComment = comments.find((comment) =>
+        comment.body?.includes(DATABASE_COORDINATION_MARKER),
+      );
+
+      if (currentDatabasePullRequest) {
+        const deadlineTimestamp = Math.floor(
+          (Date.parse(prData.created_at) + DATABASE_MERGE_DEADLINE_MS) / 1000,
+        );
+        const coordinationLines = [
+          DATABASE_COORDINATION_MARKER,
+          "⏰ **Database PR coordination**",
+          "",
+          `Merge deadline: <t:${deadlineTimestamp}:F> (<t:${deadlineTimestamp}:R>).`,
+        ];
+        if (newerDatabasePullRequests.length > 0) {
+          coordinationLines.push(
+            "",
+            `This PR is waiting for: ${newerDatabasePullRequests.map((pullRequest) => `[#${pullRequest.number}](${pullRequest.html_url})`).join(", ")}.`,
+          );
+        }
+        if (waitingDatabasePullRequests.length > 0) {
+          coordinationLines.push(
+            "",
+            `The following older database PR(s) are waiting for this PR to be handled: ${waitingDatabasePullRequests.map((pullRequest) => `[#${pullRequest.number}](${pullRequest.html_url})`).join(", ")}.`,
+          );
+        }
+        const coordinationBody = coordinationLines.join("\n");
+        if (databaseCoordinationComment) {
+          await octokit.issues.updateComment({
+            owner,
+            repo,
+            comment_id: databaseCoordinationComment.id,
+            body: coordinationBody,
+          });
+        } else {
+          await octokit.issues.createComment({
+            owner,
+            repo,
+            issue_number: pullNumber,
+            body: coordinationBody,
+          });
+        }
+      } else if (databaseCoordinationComment) {
+        await octokit.issues.updateComment({
+          owner,
+          repo,
+          comment_id: databaseCoordinationComment.id,
+          body:
+            `${DATABASE_COORDINATION_MARKER}\n` +
+            "✅ **Database coordination cleared.** This PR no longer changes `db/*`.",
+        });
+      }
+
+      if (newerDatabasePullRequests.length > 0) {
+        const databaseWarningBody =
+          `${DATABASE_WARNING_MARKER}\n` +
+          "⚠️ **Merge gate blocked by a newer database PR.**\n\n" +
+          "This PR edits `db/*` and cannot be merged until the following newer database PR(s) are handled:\n\n" +
+          newerDatabasePullRequests
+            .map(
+              (pullRequest) =>
+                `- [#${pullRequest.number}](${pullRequest.html_url}) — ${pullRequest.title}`,
+            )
+            .join("\n");
+        if (databaseWarningComment) {
+          await octokit.issues.updateComment({
+            owner,
+            repo,
+            comment_id: databaseWarningComment.id,
+            body: databaseWarningBody,
+          });
+        } else {
+          await octokit.issues.createComment({
+            owner,
+            repo,
+            issue_number: pullNumber,
+            body: databaseWarningBody,
+          });
+        }
+      } else if (databaseWarningComment) {
+        await octokit.issues.updateComment({
+          owner,
+          repo,
+          comment_id: databaseWarningComment.id,
+          body:
+            `${DATABASE_WARNING_MARKER}\n` +
+            "✅ **Database merge ordering is clear.** The newer database PR(s) have been handled.",
+        });
+      }
 
       if (!passed) {
         // Disable auto-merge so GitHub can't merge while checks are red.
@@ -250,16 +397,9 @@ module.exports = async (app) => {
           );
           const waitingBody =
             `${CI_WAITING_MARKER}\n` +
-            `⏳ **Merge gate is waiting on CI** (commit \`${headSha.slice(0, 7)}\`)\n\n` +
-            "The following checks need to pass before this PR can be merged:\n" +
-            reasons
-              .filter(
-                (r) =>
-                  r.toLowerCase().includes("check") ||
-                  r.toLowerCase().includes("status"),
-              )
-              .map((r) => `- ${r}`)
-              .join("\n") +
+            `⏳ **Merge gate is blocked** (commit \`${headSha.slice(0, 7)}\`)\n\n` +
+            "The following items must be resolved before this PR can be merged:\n" +
+            reasons.map((reason) => `- ${reason}`).join("\n") +
             `\n\nI'll update the \`${MERGE_GATE_CONTEXT}\` status check as things change.`;
           if (existingWaitingComment) {
             await octokit.issues.updateComment({
@@ -354,11 +494,132 @@ module.exports = async (app) => {
     return null;
   }
 
+  /**
+   * Queues merge-gate reconciliation per repository to prevent stale webhook
+   * work from completing after a newer reconciliation in the same process.
+   *
+   * @param {string} repositoryKey
+   * @param {() => Promise<void>} reconcile
+   */
+  async function enqueueMergeGateReconciliation(repositoryKey, reconcile) {
+    const previousReconciliation =
+      mergeGateReconciliationQueues.get(repositoryKey) || Promise.resolve();
+    const currentReconciliation = previousReconciliation
+      .catch(() => {})
+      .then(reconcile);
+    mergeGateReconciliationQueues.set(repositoryKey, currentReconciliation);
+
+    try {
+      await currentReconciliation;
+    } finally {
+      if (
+        mergeGateReconciliationQueues.get(repositoryKey) ===
+        currentReconciliation
+      ) {
+        mergeGateReconciliationQueues.delete(repositoryKey);
+      }
+    }
+  }
+
+  /**
+   * Serializes changelog writes per branch while conflict retries protect
+   * against writes from other processes.
+   *
+   * @param {string} branchKey
+   * @param {() => Promise<void>} update
+   */
+  async function enqueueChangelogUpdate(branchKey, update) {
+    const previousUpdate =
+      changelogUpdateQueues.get(branchKey) || Promise.resolve();
+    const currentUpdate = previousUpdate.catch(() => {}).then(update);
+    changelogUpdateQueues.set(branchKey, currentUpdate);
+
+    try {
+      await currentUpdate;
+    } finally {
+      if (changelogUpdateQueues.get(branchKey) === currentUpdate) {
+        changelogUpdateQueues.delete(branchKey);
+      }
+    }
+  }
+
+  /**
+   * Adds a merged PR entry to the default branch changelog. The PR marker
+   * makes webhook redelivery safe and avoids duplicate entries.
+   *
+   * @param {object} context
+   */
+  async function updateChangelog(context) {
+    const { repository, pull_request: pullRequest } = context.payload;
+    const owner = repository.owner.login;
+    const repo = repository.name;
+    const branch = pullRequest.base.ref;
+    const marker = `<!-- zeon:pr-${pullRequest.number} -->`;
+    const mergedDate = pullRequest.merged_at.slice(0, 10);
+    const normalizedTitle = pullRequest.title.replace(/\s+/g, " ").trim();
+    const changelogEntry =
+      `${marker}\n` +
+      `## ${mergedDate} — [#${pullRequest.number}](${pullRequest.html_url})\n\n` +
+      `${normalizedTitle}\n`;
+
+    // Different merge webhooks can update the same file concurrently. Retry
+    // against fresh content when GitHub rejects an outdated blob SHA.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      let existingContent = "# Changelog\n";
+      let existingSha;
+
+      try {
+        const { data: changelogFile } = await context.octokit.repos.getContent({
+          owner,
+          repo,
+          path: CHANGELOG_PATH,
+          ref: branch,
+        });
+        existingContent = Buffer.from(
+          changelogFile.content,
+          "base64",
+        ).toString();
+        existingSha = changelogFile.sha;
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+
+      if (existingContent.includes(marker)) return;
+
+      const headingMatch = existingContent.match(/^# Changelog\s*\n/i);
+      const updatedContent = headingMatch
+        ? `${headingMatch[0].trimEnd()}\n\n${changelogEntry}\n${existingContent.slice(headingMatch[0].length).trimStart()}`
+        : `# Changelog\n\n${changelogEntry}\n${existingContent.trimStart()}`;
+      const updateParameters = {
+        owner,
+        repo,
+        path: CHANGELOG_PATH,
+        branch,
+        message: `docs(changelog): record PR #${pullRequest.number}`,
+        content: Buffer.from(updatedContent.trimEnd() + "\n").toString(
+          "base64",
+        ),
+      };
+      if (existingSha) updateParameters.sha = existingSha;
+
+      try {
+        await context.octokit.repos.createOrUpdateFileContents(
+          updateParameters,
+        );
+        return;
+      } catch (error) {
+        const isContentConflict = error.status === 409 || error.status === 422;
+        if (!isContentConflict || attempt === 3) throw error;
+      }
+    }
+  }
+
   app.on(
     [
       "pull_request.opened",
       "pull_request.synchronize",
       "pull_request.reopened",
+      "pull_request.closed",
       "pull_request_review.submitted",
       "pull_request_review.dismissed",
       "pull_request_review_thread.resolved",
@@ -367,20 +628,74 @@ module.exports = async (app) => {
     ],
     async (context) => {
       const repo = context.repo();
-      if (!MERGE_GATE_REPOS.includes(repo.repo.toLowerCase())) return;
+      if (
+        `${repo.owner}/${repo.repo}`.toLowerCase() !== MERGE_GATE_REPOSITORY
+      ) {
+        return;
+      }
 
       const info = extractPRInfo(context.payload);
       if (!info) return;
 
-      await updateMergeGate(
-        context.octokit,
-        repo.owner,
-        repo.repo,
-        info.pullNumber,
-        info.headSha,
+      await enqueueMergeGateReconciliation(
+        `${repo.owner}/${repo.repo}`,
+        async () => {
+          const databasePullRequests = await listOpenDatabasePullRequests(
+            context.octokit,
+            repo.owner,
+            repo.repo,
+          );
+          const pullRequestsToUpdate = context.payload.pull_request
+            ? databasePullRequests
+            : [
+                {
+                  number: info.pullNumber,
+                  head: { sha: info.headSha },
+                },
+              ];
+
+          if (
+            context.payload.pull_request &&
+            context.payload.pull_request.state === "open" &&
+            !pullRequestsToUpdate.some(
+              (pullRequest) => pullRequest.number === info.pullNumber,
+            )
+          ) {
+            pullRequestsToUpdate.push(context.payload.pull_request);
+          }
+
+          for (const pullRequest of pullRequestsToUpdate) {
+            await updateMergeGate(
+              context.octokit,
+              repo.owner,
+              repo.repo,
+              pullRequest.number,
+              pullRequest.head.sha,
+              databasePullRequests,
+            );
+          }
+        },
       );
     },
   );
+
+  app.on("pull_request.closed", async (context) => {
+    const { repository, pull_request: pullRequest } = context.payload;
+    if (repository.full_name.toLowerCase() !== MERGE_GATE_REPOSITORY) return;
+    if (!pullRequest.merged) return;
+    if (pullRequest.user.login.toLowerCase() !== CHANGELOG_AUTHOR) return;
+
+    try {
+      await enqueueChangelogUpdate(
+        `${repository.full_name}/${pullRequest.base.ref}`.toLowerCase(),
+        () => updateChangelog(context),
+      );
+    } catch (error) {
+      app.log.error(
+        `Failed to update ${CHANGELOG_PATH} for PR #${pullRequest.number}: ${error.message}`,
+      );
+    }
+  });
 
   app.on(
     ["pull_request.opened", "pull_request.edited", "pull_request.synchronize"],
