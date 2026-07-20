@@ -114,8 +114,6 @@ module.exports = async (app) => {
   const DATABASE_COORDINATION_MARKER =
     "<!-- zeon:merge-gate:database-coordination -->";
   const DATABASE_MERGE_DEADLINE_MS = 24 * 60 * 60 * 1000;
-  const CHANGELOG_AUTHOR = "neongamerbot-qk";
-  const CHANGELOG_PATH = "CHANGELOG.md";
 
   const CI_WAITING_MARKER = "<!-- zeon:merge-gate:ci-waiting -->";
   // In-memory guard so concurrent webhook events don't race to create a second
@@ -124,7 +122,6 @@ module.exports = async (app) => {
   // Serialize repository reconciliation so older webhook snapshots cannot
   // overwrite statuses produced by newer open/close events in this process.
   const mergeGateReconciliationQueues = new Map();
-  const changelogUpdateQueues = new Map();
   // Stores the merge method so it can be restored after checks pass.
   // Format: <!-- zeon:merge-gate:automerge-disabled:METHOD -->
   const AUTO_MERGE_DISABLED_MARKER = "<!-- zeon:merge-gate:automerge-disabled:";
@@ -521,99 +518,6 @@ module.exports = async (app) => {
     }
   }
 
-  /**
-   * Serializes changelog writes per branch while conflict retries protect
-   * against writes from other processes.
-   *
-   * @param {string} branchKey
-   * @param {() => Promise<void>} update
-   */
-  async function enqueueChangelogUpdate(branchKey, update) {
-    const previousUpdate =
-      changelogUpdateQueues.get(branchKey) || Promise.resolve();
-    const currentUpdate = previousUpdate.catch(() => {}).then(update);
-    changelogUpdateQueues.set(branchKey, currentUpdate);
-
-    try {
-      await currentUpdate;
-    } finally {
-      if (changelogUpdateQueues.get(branchKey) === currentUpdate) {
-        changelogUpdateQueues.delete(branchKey);
-      }
-    }
-  }
-
-  /**
-   * Adds a merged PR entry to the default branch changelog. The PR marker
-   * makes webhook redelivery safe and avoids duplicate entries.
-   *
-   * @param {object} context
-   */
-  async function updateChangelog(context) {
-    const { repository, pull_request: pullRequest } = context.payload;
-    const owner = repository.owner.login;
-    const repo = repository.name;
-    const branch = pullRequest.base.ref;
-    const marker = `<!-- zeon:pr-${pullRequest.number} -->`;
-    const mergedDate = pullRequest.merged_at.slice(0, 10);
-    const normalizedTitle = pullRequest.title.replace(/\s+/g, " ").trim();
-    const changelogEntry =
-      `${marker}\n` +
-      `## ${mergedDate} — [#${pullRequest.number}](${pullRequest.html_url})\n\n` +
-      `${normalizedTitle}\n`;
-
-    // Different merge webhooks can update the same file concurrently. Retry
-    // against fresh content when GitHub rejects an outdated blob SHA.
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      let existingContent = "# Changelog\n";
-      let existingSha;
-
-      try {
-        const { data: changelogFile } = await context.octokit.repos.getContent({
-          owner,
-          repo,
-          path: CHANGELOG_PATH,
-          ref: branch,
-        });
-        existingContent = Buffer.from(
-          changelogFile.content,
-          "base64",
-        ).toString();
-        existingSha = changelogFile.sha;
-      } catch (error) {
-        if (error.status !== 404) throw error;
-      }
-
-      if (existingContent.includes(marker)) return;
-
-      const headingMatch = existingContent.match(/^# Changelog\s*\n/i);
-      const updatedContent = headingMatch
-        ? `${headingMatch[0].trimEnd()}\n\n${changelogEntry}\n${existingContent.slice(headingMatch[0].length).trimStart()}`
-        : `# Changelog\n\n${changelogEntry}\n${existingContent.trimStart()}`;
-      const updateParameters = {
-        owner,
-        repo,
-        path: CHANGELOG_PATH,
-        branch,
-        message: `docs(changelog): record PR #${pullRequest.number}`,
-        content: Buffer.from(updatedContent.trimEnd() + "\n").toString(
-          "base64",
-        ),
-      };
-      if (existingSha) updateParameters.sha = existingSha;
-
-      try {
-        await context.octokit.repos.createOrUpdateFileContents(
-          updateParameters,
-        );
-        return;
-      } catch (error) {
-        const isContentConflict = error.status === 409 || error.status === 422;
-        if (!isContentConflict || attempt === 3) throw error;
-      }
-    }
-  }
-
   app.on(
     [
       "pull_request.opened",
@@ -678,24 +582,6 @@ module.exports = async (app) => {
       );
     },
   );
-
-  app.on("pull_request.closed", async (context) => {
-    const { repository, pull_request: pullRequest } = context.payload;
-    if (repository.full_name.toLowerCase() !== MERGE_GATE_REPOSITORY) return;
-    if (!pullRequest.merged) return;
-    if (pullRequest.user.login.toLowerCase() !== CHANGELOG_AUTHOR) return;
-
-    try {
-      await enqueueChangelogUpdate(
-        `${repository.full_name}/${pullRequest.base.ref}`.toLowerCase(),
-        () => updateChangelog(context),
-      );
-    } catch (error) {
-      app.log.error(
-        `Failed to update ${CHANGELOG_PATH} for PR #${pullRequest.number}: ${error.message}`,
-      );
-    }
-  });
 
   app.on(
     ["pull_request.opened", "pull_request.edited", "pull_request.synchronize"],
