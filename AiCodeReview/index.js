@@ -305,13 +305,10 @@ module.exports = async (app) => {
           });
         }
       } else if (databaseCoordinationComment) {
-        await octokit.issues.updateComment({
+        await octokit.issues.deleteComment({
           owner,
           repo,
           comment_id: databaseCoordinationComment.id,
-          body:
-            `${DATABASE_COORDINATION_MARKER}\n` +
-            "✅ **Database coordination cleared.** This PR no longer changes `db/*`.",
         });
       }
 
@@ -342,14 +339,22 @@ module.exports = async (app) => {
           });
         }
       } else if (databaseWarningComment) {
-        await octokit.issues.updateComment({
-          owner,
-          repo,
-          comment_id: databaseWarningComment.id,
-          body:
-            `${DATABASE_WARNING_MARKER}\n` +
-            "✅ **Database merge ordering is clear.** The newer database PR(s) have been handled.",
-        });
+        if (currentDatabasePullRequest) {
+          await octokit.issues.updateComment({
+            owner,
+            repo,
+            comment_id: databaseWarningComment.id,
+            body:
+              `${DATABASE_WARNING_MARKER}\n` +
+              "✅ **Database merge ordering is clear.** The newer database PR(s) have been handled.",
+          });
+        } else {
+          await octokit.issues.deleteComment({
+            owner,
+            repo,
+            comment_id: databaseWarningComment.id,
+          });
+        }
       }
 
       if (!passed) {
