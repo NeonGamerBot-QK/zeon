@@ -46,10 +46,31 @@ module.exports = (app) => {
   // Your code here
   if (process.env.UPTIME_URL) {
     app.log("LOADED UPTIME");
+    // Tracks consecutive failures so a dead uptime host logs once per outage
+    // instead of every 50 seconds.
+    let consecutiveUptimeFailures = 0;
     setInterval(() => {
-      fetch(process.env.UPTIME_URL).then(() => {
-        // app.log("declared UPTIME");
-      });
+      // The heartbeat is best-effort: an unreachable uptime endpoint (DNS
+      // failure, timeout, etc.) must never crash the webhook server. Without
+      // this catch, every failed ping was an unhandled rejection that killed
+      // the process and dropped in-flight webhooks.
+      fetch(process.env.UPTIME_URL, { timeout: 10 * 1000 })
+        .then(() => {
+          if (consecutiveUptimeFailures > 0) {
+            app.log.info(
+              `Uptime heartbeat recovered after ${consecutiveUptimeFailures} failed attempt(s).`,
+            );
+          }
+          consecutiveUptimeFailures = 0;
+        })
+        .catch((error) => {
+          consecutiveUptimeFailures += 1;
+          if (consecutiveUptimeFailures === 1) {
+            app.log.warn(
+              `Uptime heartbeat failed; continuing without it: ${error.message}`,
+            );
+          }
+        });
     }, 50 * 1000);
   }
   app.log.info("Yay, the app was loaded!");
